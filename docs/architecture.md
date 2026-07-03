@@ -1,106 +1,124 @@
-# Arquitetura
+# Architecture
 
-## 1. Visao geral e contexto clinico
+## 1. Overview and clinical context
 
-**SeniorRx Monitor** e uma plataforma que analisa o perfil farmacoterapeutico de
-pacientes idosos (>=65 anos) para identificar:
+**SeniorRx Monitor** is a platform that analyzes the pharmacotherapeutic profile
+of older patients (≥ 65 years) to identify:
 
-1. **Polifarmacia/hiperpolifarmacia** (>=5 / >=10 medicamentos cronicos concomitantes);
-2. **Medicamentos Potencialmente Inapropriados (PIM)** segundo os
-   [AGS 2023 Updated Beers Criteria(R)](https://doi.org/10.1111/jgs.18372);
-3. **Interacoes medicamento-medicamento** de alto risco (ex.: opioide + benzodiazepinico);
-4. **Interacoes doenca-medicamento** (ex.: AINE em insuficiencia cardiaca);
-5. **Necessidade de ajuste por funcao renal** (eGFR).
+1. **Polypharmacy / hyperpolypharmacy** (≥ 5 / ≥ 10 concurrent chronic medications);
+2. **Potentially Inappropriate Medications (PIM)** per the
+   [2023 Updated AGS Beers Criteria®](https://doi.org/10.1111/jgs.18372);
+3. high-risk **drug–drug interactions** (e.g., opioid + benzodiazepine);
+4. **disease–drug interactions** (e.g., NSAID in heart failure);
+5. the need for **renal-function dose adjustment** (eGFR).
 
-A saida e um **nivel de risco farmacoterapeutico** por paciente, com alertas
-explicaveis (racional + recomendacao + fonte), consumido via API REST e
-visualizado em um dashboard clinico.
+The output is a per-patient **pharmacotherapeutic risk level** with explainable
+alerts (rationale + recommendation + source), consumed through a REST API and
+visualized in a clinical dashboard.
 
-> Uso exclusivo para pesquisa/educacao. Nao substitui julgamento clinico
-> nem constitui dispositivo medico regulado.
+> For research and education only. It does not replace clinical judgement and does
+> not constitute a regulated medical device.
 
-## 2. Arquitetura em camadas (Clean/Hexagonal)
+## 2. Layered architecture (Clean / Hexagonal)
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ INTERFACE (interface/)                                            │
-│   - api/          FastAPI: rotas HTTP, schemas Pydantic, auth      │
-│   - dashboard/     Streamlit: visualizacao, consome a API          │
+│   - api/          FastAPI: HTTP routes, Pydantic schemas, auth     │
+│   - dashboard/    Streamlit: visualization, consumes the API       │
 ├──────────────────────────────────────────────────────────────────┤
 │ APPLICATION (application/)                                         │
-│   - services/     Orquestra motores de regra de dominio            │
-│   - dto.py         Contratos de saida (nao vazam entidades internas)│
+│   - services/     orchestrates the domain rule engines            │
+│   - dto.py        output contracts (do not leak internal entities) │
 ├──────────────────────────────────────────────────────────────────┤
-│ DOMAIN (domain/)          <-- NUCLEO, sem dependencia de framework  │
+│ DOMAIN (domain/)          <-- CORE, no framework dependency        │
 │   - entities.py    Patient, Prescription, BeersCriterion, Alert...  │
-│   - value_objects.py  Limiares clinicos (polifarmacia, eGFR, etc.)  │
+│   - value_objects.py  clinical thresholds (polypharmacy, eGFR, ...) │
 │   - rules/         BeersRulesEngine, PolypharmacyRulesEngine,       │
 │                     InteractionRulesEngine                          │
 ├──────────────────────────────────────────────────────────────────┤
 │ INFRASTRUCTURE (infrastructure/)                                    │
-│   - db/           SQLAlchemy models + repositories (traducao ORM<->domínio)│
-│   - ml/           Feature engineering, RandomForest, treino via MLflow │
+│   - db/           SQLAlchemy models + repositories (ORM<->domain)   │
+│   - ml/           feature engineering, RandomForest, MLflow training│
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-**Regra de dependencia**: setas de import apontam sempre para dentro
-(`interface -> application -> domain`; `infrastructure` implementa
-interfaces consumidas pela `application`, mas o `domain` nunca importa
-SQLAlchemy, FastAPI ou Streamlit). Isso permite testar 100% da logica
-clinica (`domain/`) sem banco de dados nem HTTP — ver `tests/unit/`.
+**Dependency rule**: import arrows always point inward
+(`interface → application → domain`; `infrastructure` implements the interfaces
+consumed by `application`, but `domain` never imports SQLAlchemy, FastAPI, or
+Streamlit). This lets us test 100% of the clinical logic (`domain/`) without a
+database or HTTP — see `tests/unit/`. The design follows Robert C. Martin's
+**Clean Architecture** and the **Ports & Adapters (Hexagonal)** pattern.
 
-## 3. Fluxo de dados (input de prescricao -> relatorio)
+## 3. Data flow (prescription input → report)
 
 ```
-[1] Prescricao eletronica / cadastro         [2] ETL (scripts/etl_pipeline.py)
-    (CSV sintetico ou sistema de origem)  ─────────────▶  PostgreSQL normalizado
+[1] Electronic prescription / record         [2] ETL (scripts/etl_pipeline.py)
+    (synthetic CSV or source system)      ─────────────▶  normalized PostgreSQL
                                                             (patients, medications,
                                                              prescriptions, comorbidities)
                                                                     │
                                                                     ▼
-[3] PatientRepository carrega Patient (dominio)      BeersCriteriaRepository
-    com prescricoes/comorbidades ativas          carrega BeersCriterion[] (dominio)
+[3] PatientRepository loads Patient (domain)         BeersCriteriaRepository
+    with active prescriptions/comorbidities      loads BeersCriterion[] (domain)
                                                                     │
                                                                     ▼
 [4] RiskScoringService.assess(patient)
-      ├─ BeersRulesEngine        -> alertas de PIM
-      ├─ InteractionRulesEngine  -> alertas de DDI / ajuste renal
-      ├─ PolypharmacyRulesEngine -> alertas de poli/hiperpolifarmacia
-      └─ (opcional) AdverseEventRiskModel.predict_proba -> sinal de ML complementar
+      ├─ BeersRulesEngine        -> PIM alerts
+      ├─ InteractionRulesEngine  -> DDI / renal-adjustment alerts
+      ├─ PolypharmacyRulesEngine -> poly/hyperpolypharmacy alerts
+      └─ (optional) AdverseEventRiskModel.predict_proba -> complementary ML signal
                                                                     │
                                                                     ▼
-[5] RiskAssessmentDTO (nivel de risco + lista de alertas explicaveis)
+[5] RiskAssessmentDTO (risk level + list of explainable alerts)
                                                                     │
                             ┌───────────────────────────────────────┤
                             ▼                                       ▼
-[6a] API FastAPI                                      [6b] Relatorio R/Quarto
-     GET /patients/{id}/risk-assessment                    (analise epidemiologica
-     (JSON, consumido por sistemas externos)                agregada da coorte)
+[6a] FastAPI API                                     [6b] R/Quarto report
+     GET /patients/{id}/risk-assessment                    (aggregated cohort
+     (JSON, consumed by external systems)                   epidemiological analysis)
                             │
                             ▼
-[7] Dashboard Streamlit — visualizacao interativa por paciente/farmaceutico clinico
+[7] Streamlit dashboard — interactive per-patient view for the clinical pharmacist
 ```
 
-## 4. Componentes de MLOps
+## 4. Interoperability and coding standards
 
-- **MLflow**: tracking de experimentos e registry de modelos (`configs/mlops.md`).
-- **DVC** (opcional): versionamento de `data/raw`/`data/processed` fora do git.
-- **Evidently AI**: deteccao de drift semanal via GitHub Actions
+- **WHO ATC/DDD** for medication classification and **WHO ICD-10** for diagnoses —
+  making rule matching robust and internationally portable.
+- **HL7 FHIR** (`MedicationRequest`, `Condition`) is the planned interface for
+  ingesting real, anonymized electronic health records (see `docs/roadmap.md`).
+- **FAIR data principles** guide the schema (documented, standardized, versioned).
+
+## 5. MLOps components
+
+- **MLflow**: experiment tracking and model registry (`configs/mlops.md`).
+- **DVC** (optional): versioning of `data/raw` / `data/processed` outside git.
+- **Evidently AI**: weekly drift detection via GitHub Actions
   (`.github/workflows/model-monitoring.yml`).
 - **Docker Compose**: `db` (Postgres) + `api` (FastAPI) + `dashboard` (Streamlit).
 
-## 5. Seguranca (resumo — ver `SECURITY.md`)
+Predictive-model development is intended to follow **TRIPOD+AI** reporting and
+**PROBAST** risk-of-bias appraisal (see `docs/clinical_validation.md`).
 
-- Sem PII no schema (pseudonimos, nao nomes/CPF).
-- Segredos via `.env` / GitHub Secrets, nunca hardcoded.
-- API Key stub -> substituir por OAuth2/OIDC em producao.
-- HTTPS terminado no proxy reverso, nunca a API exposta em HTTP puro.
+## 6. Security (summary — see `SECURITY.md`)
 
-## 6. Decisões arquiteturais notáveis
+- No PII in the schema (pseudonyms, not names/national IDs).
+- Secrets via `.env` / GitHub Secrets, never hardcoded.
+- Constant-time API-key check with fail-closed in production → to be replaced by
+  OAuth2/OIDC.
+- HTTPS terminated at a reverse proxy; the API is never exposed over plain HTTP.
 
-| Decisão | Alternativa considerada | Motivo |
+Security controls are aligned with the **OWASP ASVS** and **OWASP API Security
+Top 10**; software quality attributes map to **ISO/IEC 25010**
+(maintainability, security, reliability), and configuration follows the
+**Twelve-Factor App** methodology.
+
+## 7. Notable architectural decisions
+
+| Decision | Alternative considered | Rationale |
 |---|---|---|
-| Regras clinicas em Python puro (domain/), sem SQL embutido na logica | Regras 100% em SQL (views/stored procedures) | Testabilidade unitaria rapida, sem dependencia de banco; SQL usado apenas para persistencia/consulta |
-| Dashboard consome a API (nao acessa o banco direto) | Streamlit lendo o banco diretamente | Unica fonte de verdade das regras de negocio; evita duplicar logica de risco no dashboard |
-| RandomForest simples em vez de XGBoost/deep learning | Modelos mais complexos | Interpretabilidade priorizada sobre performance marginal em contexto clinico educacional |
-| Rotulo de treino sintetico explicitamente marcado como proxy | Reivindicar rotulo "real" | Honestidade cientifica — ver `docs/clinical_validation.md` |
+| Clinical rules in pure Python (`domain/`), no SQL embedded in the logic | Rules 100% in SQL (views/stored procedures) | Fast unit testability with no database dependency; SQL used only for persistence/query |
+| Dashboard consumes the API (no direct database access) | Streamlit reading the database directly | Single source of truth for business rules; avoids duplicating risk logic in the dashboard |
+| Simple RandomForest instead of XGBoost/deep learning | More complex models | Interpretability prioritized over marginal performance in an educational clinical context |
+| Synthetic training label explicitly marked as a proxy | Claiming a "real" label | Scientific honesty — see `docs/clinical_validation.md` |

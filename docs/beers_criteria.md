@@ -1,71 +1,87 @@
-# Criterios de Beers 2023 — Conceitos e Uso Neste Projeto
+# The 2023 Beers Criteria — Concepts and Use in This Project
 
-## O que sao os AGS Beers Criteria
+## What the AGS Beers Criteria are
 
-Os **Beers Criteria** sao uma lista de referencia, publicada e atualizada
-periodicamente pela **American Geriatrics Society (AGS)**, que identifica
-medicamentos cuja relacao risco-beneficio e geralmente desfavoravel em
-adultos com 65 anos ou mais — os chamados **Medicamentos Potencialmente
-Inapropriados (PIM)**. Criados originalmente por Mark Beers em 1991, sao hoje
-mantidos por um painel multidisciplinar de especialistas (geriatria, farmacia
-clinica, farmacologia) usando metodologia de revisao sistematica e consenso
-formal (Delphi modificado).
+The **Beers Criteria** are a reference list, published and periodically updated by
+the **American Geriatrics Society (AGS)**, that identifies medications whose
+risk–benefit balance is generally unfavorable in adults aged 65 and older — the
+so-called **Potentially Inappropriate Medications (PIM)**. Originally created by
+Mark Beers in 1991, they are now maintained by a multidisciplinary expert panel
+(geriatrics, clinical pharmacy, pharmacology) using systematic review and formal
+consensus (modified Delphi) methodology.
 
-A atualizacao de 2023 organiza os criterios em **cinco categorias**:
+The 2023 update organizes the criteria into **five categories**:
 
-1. PIM a evitar na maioria dos idosos, **independente de diagnostico** ou condicao;
-2. PIM a evitar em idosos com **doencas/sindromes especificas** (interacao doenca-medicamento);
-3. Medicamentos a **usar com cautela**;
-4. **Interacoes medicamento-medicamento** clinicamente importantes a evitar;
-5. Medicamentos que exigem **ajuste de dose por funcao renal**.
+1. PIM to avoid in most older adults, **independent of diagnosis** or condition;
+2. PIM to avoid in older adults with **specific diseases/syndromes**
+   (disease–drug interactions);
+3. medications to **use with caution**;
+4. clinically important **drug–drug interactions** to avoid;
+5. medications that require **renal-function dose adjustment**.
 
-**Referencia oficial:**
-American Geriatrics Society Beers Criteria(R) Update Expert Panel. *American
-Geriatrics Society 2023 updated AGS Beers Criteria(R) for potentially
-inappropriate medication use in older adults.* J Am Geriatr Soc.
-2023;71(7):2052-2081. doi: [10.1111/jgs.18372](https://doi.org/10.1111/jgs.18372)
+**Official reference:**
+American Geriatrics Society Beers Criteria® Update Expert Panel. *American
+Geriatrics Society 2023 updated AGS Beers Criteria® for potentially inappropriate
+medication use in older adults.* J Am Geriatr Soc. 2023;71(7):2052–2081.
+doi: [10.1111/jgs.18372](https://doi.org/10.1111/jgs.18372)
 
-## Conceitos-chave
+## Key concepts
 
-- **Polifarmacia**: uso concomitante de multiplos medicamentos, convencionalmente
-  definido como **>=5 medicamentos cronicos** (limiar adotado neste projeto —
-  ver `src/seniorrx/domain/value_objects.py`). **Hiperpolifarmacia**: **>=10**.
-  Cada medicamento adicional aumenta o risco de interacao, erro de adesao e
-  reacao adversa, mesmo quando cada prescricao individual e apropriada.
-- **PIM (Medicamento Potencialmente Inapropriado)**: medicamento cujo risco
-  supera o beneficio esperado em idosos, geralmente por alteracoes
-  farmacocineticas/farmacodinamicas do envelhecimento (reducao de clearance
-  renal/hepatico, maior sensibilidade do SNC, menor reserva homeostatica).
-- **Interacao medicamento-medicamento (DDI)**: efeito farmacologico alterado
-  quando dois farmacos sao usados juntos (ex.: opioide + benzodiazepinico
-  potencializando depressao respiratoria).
-- **Interacao doenca-medicamento**: um farmaco seguro em geral, mas
-  contraindicado ou de alto risco numa condicao clinica especifica (ex.: AINE
-  em insuficiencia cardiaca).
-- **Deprescricao**: processo estruturado e supervisionado de reducao/suspensao
-  de medicamentos cujo risco passou a superar o beneficio — a acao clinica
-  tipicamente recomendada apos um alerta de PIM, nunca suspensao abrupta sem
-  avaliacao médica.
+- **Polypharmacy**: the concurrent use of multiple medications, conventionally
+  defined as **≥ 5 chronic medications** (the threshold adopted in this project —
+  see `src/seniorrx/domain/value_objects.py`). **Hyperpolypharmacy**: **≥ 10**.
+  Each additional medication increases the risk of interactions, adherence errors,
+  and adverse reactions, even when each individual prescription is appropriate.
+- **PIM (Potentially Inappropriate Medication)**: a medication whose risk exceeds
+  the expected benefit in older adults, typically because of the
+  pharmacokinetic/pharmacodynamic changes of aging (reduced renal/hepatic
+  clearance, greater CNS sensitivity, lower homeostatic reserve).
+- **Drug–drug interaction (DDI)**: an altered pharmacological effect when two
+  drugs are used together (e.g., opioid + benzodiazepine potentiating respiratory
+  depression).
+- **Disease–drug interaction**: a drug that is generally safe but contraindicated
+  or high-risk in a specific clinical condition (e.g., NSAID in heart failure).
+- **Deprescribing**: the structured, supervised process of reducing or stopping
+  medications whose risk has come to outweigh the benefit — the clinical action
+  typically recommended after a PIM alert, never an abrupt discontinuation without
+  medical assessment.
 
-## IMPORTANTE — Natureza do conteudo neste repositorio
+## Coding standards
 
-A tabela `beers_pim_criteria` (`sql/seed_beers_pim.sql`) contem um
-**subconjunto ilustrativo e educacional** de ~24 criterios amplamente citados
-na literatura, escolhidos por relevancia didatica (ex.: benzodiazepinicos,
-anti-histaminicos de 1a geracao, AINEs, glibenclamida, "triple whammy").
+Medications are coded with the **WHO Anatomical Therapeutic Chemical (ATC)**
+classification and comorbidities with **WHO ICD-10**, which makes the rule
+matching robust and internationally portable. Complementary explicit tools such as
+the **STOPP/START** criteria (European) are planned as an alternative source (see
+`docs/roadmap.md`).
 
-- **NAO e a tabela oficial completa** dos AGS Beers Criteria 2023, que contem
-  dezenas de criterios adicionais, doses especificas e notas de excecao;
-- A tabela oficial completa e **propriedade intelectual da American Geriatrics
-  Society**, distribuida por Wiley — consulte a publicacao original ou o app
-  oficial da AGS para uso clinico assistencial real;
-- Este projeto foi desenhado para que adicionar/corrigir criterios seja
-  trivial (uma linha em `sql/seed_beers_pim.sql` + citacao da fonte no PR —
-  ver template de issue "Novo criterio clinico" e `CONTRIBUTING.md`).
+## Real-world grounding
 
-## Aviso de uso
+This project operationalizes the same kind of assessment described in published
+pharmacovigilance research — including the author's own cross-sectional study of
+polypharmacy and PIM in older adults (Chaves et al., 2020, *Brazilian Journal of
+Development*), which applied the Beers Criteria and ATC classification and found
+65.2% exposure to polypharmacy and 52.2% use of at least one PIM. See
+[`docs/references.md`](references.md).
 
-Este software e destinado a **pesquisa e educacao**. Os alertas gerados sao
-um apoio a decisao, nao um diagnostico ou prescricao automatizada, e **nao
-substituem o julgamento clinico** de um farmaceutico ou medico responsavel
-pelo paciente.
+## IMPORTANT — Nature of the content in this repository
+
+The `beers_pim_criteria` table (`sql/seed_beers_pim.sql`) contains an
+**illustrative, educational subset** of ~24 widely cited criteria, chosen for
+didactic relevance (e.g., benzodiazepines, first-generation antihistamines,
+NSAIDs, glibenclamide, the "triple whammy").
+
+- It is **not the full official table** of the 2023 AGS Beers Criteria, which
+  contains dozens of additional criteria, specific doses, and exception notes;
+- the complete official table is the **intellectual property of the American
+  Geriatrics Society**, distributed by Wiley — consult the original publication or
+  the official AGS app for real clinical use;
+- the project is designed so that adding/correcting criteria is trivial (one row
+  in `sql/seed_beers_pim.sql` + a cited source in the pull request — see the "New
+  clinical criterion" issue template and `CONTRIBUTING.md`).
+
+## Usage disclaimer
+
+This software is intended for **research and education**. The alerts it generates
+are decision support, not a diagnosis or automated prescription, and they **do not
+replace the clinical judgement** of the pharmacist or physician responsible for the
+patient.

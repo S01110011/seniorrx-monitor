@@ -153,7 +153,8 @@ A full description of each module is available in [`docs/architecture.md`](docs/
 
 ## Documentation
 
-> Most documents under `docs/` are written in Portuguese.
+> The core documents (architecture, deep dive, clinical validation, Beers
+> criteria, references) are in English; a few others remain in Portuguese.
 
 | Document | Contents |
 |---|---|
