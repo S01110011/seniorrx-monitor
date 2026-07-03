@@ -1,0 +1,22 @@
+# Configuracao de aplicacao nao-sensivel (segredos ficam em .env, nunca aqui).
+
+app:
+  name: "SeniorRx Monitor"
+  version: "0.1.0"
+
+clinical_rules:
+  elderly_age_threshold: 65
+  polypharmacy_threshold: 5
+  hyper_polypharmacy_threshold: 10
+  ppi_chronic_use_days: 56
+  metoclopramide_chronic_use_days: 84
+  ckd_egfr_alert_threshold: 45.0
+
+ml:
+  model_version: "rf-v0.1.0"
+  retrain_schedule_cron: "0 3 * * 0"   # semanal, domingo 03:00 UTC
+  drift_check_schedule_cron: "0 6 * * 1"
+
+api:
+  cors_default_origin: "http://localhost:8501"
+  rate_limit_per_minute: 120

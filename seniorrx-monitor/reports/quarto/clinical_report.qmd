@@ -1,0 +1,146 @@
+---
+title: "SeniorRx Monitor — Relatorio Epidemiologico de PIM e Polifarmacia"
+subtitle: "Analise reprodutivel baseada nos AGS Beers Criteria(R) 2023"
+author: "SeniorRx Monitor"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    theme: cosmo
+    code-fold: true
+  pdf:
+    toc: true
+execute:
+  warning: false
+---
+
+## Aviso
+
+Este relatorio usa **dados sinteticos** gerados por `scripts/generate_synthetic_data.py`
+(ou dados anonimizados equivalentes carregados no PostgreSQL do projeto). Resultados
+sao para fins de pesquisa/educacao e nao representam desfechos clinicos reais.
+
+```{r setup}
+library(DBI)
+library(RPostgres)
+library(dplyr)
+library(ggplot2)
+library(gt)
+
+con <- dbConnect(
+  RPostgres::Postgres(),
+  host = Sys.getenv("PGHOST", "localhost"),
+  port = as.integer(Sys.getenv("PGPORT", "5432")),
+  dbname = Sys.getenv("PGDATABASE", "seniorrx"),
+  user = Sys.getenv("PGUSER", "seniorrx"),
+  password = Sys.getenv("PGPASSWORD", "")
+)
+```
+
+## 1. Perfil demografico da coorte
+
+```{r demografia}
+patients <- dbGetQuery(con, "
+  SELECT patient_id, birth_year, sex, care_setting,
+         EXTRACT(YEAR FROM CURRENT_DATE) - birth_year AS age
+  FROM patients
+")
+
+patients |>
+  summarise(
+    n = n(),
+    idade_media = mean(age),
+    idade_dp = sd(age),
+    pct_feminino = mean(sex == "F") * 100
+  ) |>
+  gt() |>
+  tab_header(title = "Resumo demografico da coorte")
+```
+
+```{r idade-hist}
+ggplot(patients, aes(x = age)) +
+  geom_histogram(binwidth = 5, fill = "#2E7D32", color = "white") +
+  labs(title = "Distribuicao etaria (>=65 anos)", x = "Idade", y = "N pacientes") +
+  theme_minimal()
+```
+
+## 2. Prevalencia de polifarmacia
+
+```{r polifarmacia}
+med_counts <- dbGetQuery(con, "
+  SELECT patient_id, COUNT(*) AS n_active_meds
+  FROM v_active_prescriptions
+  GROUP BY patient_id
+")
+
+med_counts <- med_counts |>
+  mutate(categoria = case_when(
+    n_active_meds >= 10 ~ "Hiperpolifarmacia (>=10)",
+    n_active_meds >= 5  ~ "Polifarmacia (5-9)",
+    TRUE ~ "Sem polifarmacia (<5)"
+  ))
+
+med_counts |>
+  count(categoria) |>
+  mutate(pct = round(100 * n / sum(n), 1)) |>
+  gt() |>
+  tab_header(title = "Prevalencia de polifarmacia na coorte")
+```
+
+## 3. Prevalencia de PIM (Beers 2023) por classe
+
+```{r pim-prevalencia}
+pim_by_class <- dbGetQuery(con, "
+  SELECT b.drug_or_class, COUNT(DISTINCT p.patient_id) AS n_pacientes_expostos
+  FROM v_active_prescriptions p
+  JOIN beers_pim_criteria b
+    ON p.atc_code LIKE (b.atc_pattern || '%')
+   AND b.criteria_type = 'PIM_INDEPENDENTE_DIAGNOSTICO'
+  GROUP BY b.drug_or_class
+  ORDER BY n_pacientes_expostos DESC
+")
+
+pim_by_class |>
+  gt() |>
+  tab_header(title = "Pacientes expostos a PIM por classe (Beers 2023)")
+```
+
+```{r pim-plot}
+ggplot(pim_by_class, aes(x = reorder(drug_or_class, n_pacientes_expostos), y = n_pacientes_expostos)) +
+  geom_col(fill = "#C62828") +
+  coord_flip() +
+  labs(title = "PIM mais prevalentes na coorte", x = NULL, y = "N pacientes expostos") +
+  theme_minimal()
+```
+
+## 4. Associacao entre polifarmacia e exposicao a PIM
+
+```{r associacao}
+pim_patients <- dbGetQuery(con, "
+  SELECT DISTINCT p.patient_id
+  FROM v_active_prescriptions p
+  JOIN beers_pim_criteria b ON p.atc_code LIKE (b.atc_pattern || '%')
+  WHERE b.criteria_type IN ('PIM_INDEPENDENTE_DIAGNOSTICO', 'PIM_CONDICAO_ESPECIFICA')
+")
+
+med_counts <- med_counts |>
+  mutate(exposto_pim = patient_id %in% pim_patients$patient_id)
+
+med_counts |>
+  group_by(categoria) |>
+  summarise(pct_com_pim = round(100 * mean(exposto_pim), 1), .groups = "drop") |>
+  gt() |>
+  tab_header(title = "Percentual com >=1 PIM, por faixa de polifarmacia")
+```
+
+## 5. Conclusoes e limitacoes
+
+- Analise **descritiva**; nao estabelece causalidade entre polifarmacia e desfechos.
+- Baseada em subconjunto ilustrativo dos criterios Beers 2023 (ver `docs/beers_criteria.md`);
+  a tabela oficial completa deve ser usada para qualquer inferencia epidemiologica publicavel.
+- Para validacao cientifica formal, ver `docs/clinical_validation.md`.
+
+```{r cleanup}
+dbDisconnect(con)
+```

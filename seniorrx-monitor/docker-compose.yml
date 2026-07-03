@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: seniorrx
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: seniorrx
+    ports:
+      - "5432:5432"
+    volumes:
+      - seniorrx_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seniorrx"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Servico one-shot: aplica schema.sql + seed dos criterios Beers e sai.
+  # Garante que `docker compose up` produza uma API ja consultavel (schema + PIM).
+  init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      python scripts/init_db.py
+      --database-url postgresql://seniorrx:${POSTGRES_PASSWORD:-changeme}@db:5432/seniorrx
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql+psycopg://seniorrx:${POSTGRES_PASSWORD:-changeme}@db:5432/seniorrx
+      SENIORRX_ENV: ${SENIORRX_ENV:-development}
+      SENIORRX_API_KEY: ${SENIORRX_API_KEY:-changeme}
+      SENIORRX_CORS_ORIGINS: http://localhost:8501
+      SENIORRX_RATE_LIMIT: ${SENIORRX_RATE_LIMIT:-120/minute}
+    ports:
+      - "8000:8000"
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    depends_on:
+      - api
+    environment:
+      SENIORRX_API_URL: http://api:8000
+      SENIORRX_API_KEY: ${SENIORRX_API_KEY:-changeme}
+    ports:
+      - "8501:8501"
+
+volumes:
+  seniorrx_pgdata:

@@ -1,0 +1,38 @@
+# Reduz a superficie de ataque e o tamanho da imagem: nada de segredos,
+# historico git, dados ou artefatos locais entram no contexto de build.
+.git
+.github
+.gitignore
+.gitattributes
+.dockerignore
+
+# Segredos e ambiente local — NUNCA copiar para a imagem
+.env
+*.env
+!.env.example
+
+# Dados (sinteticos ou nao) e artefatos de modelo
+data/raw/*
+data/processed/*
+mlruns/
+
+# Ambientes e caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Testes e notebooks nao sao necessarios em runtime
+tests/
+notebooks/
+reports/
+
+# IDE / SO
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,38 @@
+name: Model Monitoring (Evidently)
+
+# Job agendado que compara a distribuicao de features/predicoes recentes contra
+# o dataset de referencia (treino), detectando drift antes que degrade a
+# qualidade dos alertas de risco. Ver docs/architecture.md (secao MLOps).
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # toda segunda-feira, 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  drift-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install -e ".[dev]"
+      - name: Gerar relatorio de drift
+        run: |
+          python scripts/build_training_set.py --output data/processed/current_batch.parquet --seed 7
+          python -c "
+          import pandas as pd
+          from evidently.report import Report
+          from evidently.metric_preset import DataDriftPreset
+
+          reference = pd.read_parquet('data/processed/training_set.parquet')
+          current = pd.read_parquet('data/processed/current_batch.parquet')
+          report = Report(metrics=[DataDriftPreset()])
+          report.run(reference_data=reference, current_data=current)
+          report.save_html('reports/drift_report.html')
+          "
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drift-report
+          path: reports/drift_report.html

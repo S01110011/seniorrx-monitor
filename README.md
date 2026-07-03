@@ -1,3 +1,26 @@
+# HealthTech Portfolio — Samuel Brener
+
+Two production-minded Python projects that apply data engineering, clinical
+domain knowledge and MLOps to real problems in hospital pharmacy and geriatric
+patient safety. Both use **synthetic data only** and are safe for public GitHub.
+
+| Project | Focus | Stack highlights | Location |
+|---|---|---|---|
+| **MedStock Optimizer** | Hospital pharmacy **inventory** planning: demand forecasting, safety stock, reorder points, replenishment simulation, operational reports | Python, forecasting, pandas, pytest, GitHub Actions | this repository root |
+| **SeniorRx Monitor** | **Medication safety** in older adults: detection of Potentially Inappropriate Medications (AGS Beers Criteria® 2023), polypharmacy and drug interactions | FastAPI, PostgreSQL, SQLAlchemy, scikit-learn/MLflow, Streamlit, R/Quarto, Docker | [`seniorrx-monitor/`](seniorrx-monitor/) |
+
+> **SeniorRx Monitor** is a full clinical-decision-support platform — clean
+> architecture (domain/application/infrastructure/interface), a validated
+> Beers-2023 rule engine, a Dockerized API + dashboard, hardened security and a
+> reproducible epidemiological report. See its own
+> [README](seniorrx-monitor/README.md) and
+> [technical deep-dive](seniorrx-monitor/docs/DEEP_DIVE.md).
+>
+> Both projects are for research/education and do not replace professional
+> clinical judgement.
+
+---
+
 # MedStock Optimizer
 
 MedStock Optimizer is a professional Python healthtech project for hospital pharmacy inventory planning.
