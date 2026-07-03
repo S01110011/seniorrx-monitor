@@ -1,71 +1,72 @@
-# Contribuindo com o SeniorRx Monitor
+# Contributing to SeniorRx Monitor
 
-Obrigado por contribuir! Este e um projeto de pesquisa/educacional sobre
-seguranca do paciente idoso — contribuicoes de farmaceuticos clinicos,
-geriatras, cientistas de dados e engenheiros de software sao bem-vindas.
+Thank you for contributing! This is a research/education project on older-adult
+patient safety — contributions from clinical pharmacists, geriatricians, data
+scientists, and software engineers are welcome.
 
-## Ambiente de desenvolvimento
+## Development environment
 
 ```bash
-python -m venv .venv && source .venv/bin/activate   # ou .venv\Scripts\activate no Windows
+python -m venv .venv && source .venv/bin/activate   # or .venv\Scripts\activate on Windows
 make install
-cp .env.example .env
+make secrets                                          # generate a .env with strong secrets
 docker compose up -d db
 python scripts/init_db.py --database-url "$DATABASE_URL"
 python scripts/generate_synthetic_data.py
 ```
 
-## Fluxo de contribuicao
+## Contribution flow
 
-1. Abra uma issue descrevendo o problema/feature antes de comecar (evita retrabalho).
-2. Crie um branch a partir de `main`: `git checkout -b feature/nome-curto`.
-3. Escreva testes para qualquer mudanca em `src/seniorrx/domain/` ou `application/`.
-4. Rode localmente antes do PR:
+1. Open an issue describing the problem/feature before starting (avoids rework).
+2. Create a branch from `main`: `git checkout -b feature/short-name`.
+3. Write tests for any change in `src/seniorrx/domain/` or `application/`.
+4. Run locally before the PR:
    ```bash
    make lint
    make typecheck
    make test-unit
    ```
-5. Abra o Pull Request preenchendo o template (o que mudou, por que, como testar).
+5. Open the Pull Request filling in the template (what changed, why, how to test).
 
-## Convencao de commits
+## Commit convention
 
-Mensagens curtas, no imperativo, em portugues ou ingles (consistente por PR):
+Short, imperative messages in English (Conventional Commits):
 
 ```
-feat: adiciona regra de interacao IECA+espironolactona
-fix: corrige calculo de duracao de prescricao para PPI cronico
-docs: atualiza README com instrucoes de Docker Compose
-test: cobre caso de paciente sem eGFR informado
-refactor: extrai _atc_matches para modulo compartilhado
+feat: add ACEi + spironolactone interaction rule
+fix: correct prescription-duration calculation for chronic PPI use
+docs: update README with Docker Compose instructions
+test: cover the case of a patient with no eGFR reported
+refactor: extract _atc_matches into a shared module
 ```
 
-## Alteracoes em conteudo clinico (criterios Beers/DDI)
+## Changes to clinical content (Beers/DDI criteria)
 
-Qualquer mudanca em `sql/seed_beers_pim.sql` ou nas regras de dominio que
-afete um alerta clinico **exige** citacao da fonte na descricao do PR
-(ver template de issue "Novo criterio clinico") e revisao por ao menos
-uma pessoa com background clinico/farmaceutico, quando disponivel.
+Any change to `sql/seed_beers_pim.sql` or to the domain rules that affects a
+clinical alert **requires** a cited source in the PR description (see the "New
+clinical criterion" issue template) and review by at least one person with a
+clinical/pharmaceutical background, when available.
 
-## Padroes de codigo
+## Code standards
 
-- Python 3.11+, tipagem completa (`mypy --strict` deve passar).
-- `ruff` para lint/format (`make lint`).
-- Arquitetura em camadas: `domain/` nao importa de `infrastructure/` ou `interface/`.
-- Cobertura de testes minima: 80% (`pytest --cov-fail-under=80`, ja configurado).
+- Python 3.11+, full typing (`mypy --strict` must pass).
+- `ruff` for lint/format (`make lint`).
+- Layered architecture: `domain/` does not import from `infrastructure/` or
+  `interface/`.
+- Minimum test coverage: 80% (`pytest --cov-fail-under=80`, already configured).
 
-## Governanca do repositorio
+## Repository governance
 
-- A branch `main` e **protegida**: mudancas entram via Pull Request com o CI
-  verde (lint, mypy, security-scan, testes e build Docker). Force-push e delecao
-  sao bloqueados e o historico e linear.
-- `.github/CODEOWNERS` solicita revisao automatica do mantenedor, especialmente
-  em conteudo clinico (`sql/`, `domain/`) e seguranca.
-- Roadmap organizado em milestones (v0.2, v0.3, v1.0) — ver as issues abertas.
+- The `main` branch is **protected**: changes land via Pull Request with a green
+  CI (lint, mypy, security-scan, tests, and Docker build). Force-push and deletion
+  are blocked and history is linear.
+- `.github/CODEOWNERS` requests automatic maintainer review, especially for
+  clinical content (`sql/`, `domain/`) and security.
+- The roadmap is organized into milestones (v0.2, v0.3, v1.0) — see the open issues.
 
-## Codigo de conduta
+## Code of conduct
 
-Este projeto adota o [Contributor Covenant](CODE_OF_CONDUCT.md). Ao participar,
-espera-se que voce respeite seus termos. Seja respeitoso e construtivo:
-discussoes clinicas podem ser tecnicas e divergentes — mantenha o foco em
-evidencia e seguranca do paciente.
+This project adopts the [Contributor Covenant](CODE_OF_CONDUCT.md). By
+participating, you are expected to uphold its terms. Be respectful and
+constructive: clinical discussions can be technical and divergent — keep the focus
+on evidence and patient safety.

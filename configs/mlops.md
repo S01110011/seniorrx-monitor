@@ -1,32 +1,35 @@
-# Estrategia de MLOps
+# MLOps Strategy
 
-## Versionamento de modelo — MLflow
-- Todo treino (`src/seniorrx/infrastructure/ml/train.py`) registra parametros, metricas
-  (ROC-AUC) e artefato do modelo em um MLflow Tracking Server (`MLFLOW_TRACKING_URI`).
-- Promocao de modelo para "Production" no MLflow Model Registry e um passo manual
-  (gate humano), nunca automatico — decisao clinica de risco exige revisao.
+## Model versioning — MLflow
+- Every training run (`src/seniorrx/infrastructure/ml/train.py`) logs parameters,
+  metrics (ROC-AUC), and the model artifact to an MLflow Tracking Server
+  (`MLFLOW_TRACKING_URI`).
+- Promoting a model to "Production" in the MLflow Model Registry is a manual step
+  (a human gate), never automatic — a clinical risk decision requires review.
 
-## Versionamento de dados — DVC
-- `data/raw/` e `data/processed/` sao versionados via [DVC](https://dvc.org/) apontando
-  para um remote de armazenamento (S3/GCS/Azure Blob) fora do repositorio git.
+## Data versioning — DVC
+- `data/raw/` and `data/processed/` are versioned with [DVC](https://dvc.org/),
+  pointing to a storage remote (S3/GCS/Azure Blob) outside the git repository.
 - Setup: `dvc init && dvc remote add -d storage <url> && dvc add data/raw`.
-- Isso garante reprodutibilidade exata de qual snapshot de dados gerou qual modelo.
+- This guarantees exact reproducibility of which data snapshot produced which model.
 
-## Monitoramento — Evidently AI
-- `.github/workflows/model-monitoring.yml` roda semanalmente, gerando um
-  `DataDriftPreset` comparando o batch mais recente contra o dataset de treino.
-- Alertas de drift significativo devem abrir uma issue automatica (integracao futura,
-  ver `docs/roadmap.md` v0.3) e disparar retrain manual revisado por um farmaceutico
-  clinico/cientista de dados responsavel.
+## Monitoring — Evidently AI
+- `.github/workflows/model-monitoring.yml` runs weekly, generating a
+  `DataDriftPreset` that compares the most recent batch against the training
+  dataset.
+- Significant drift alerts should open an automatic issue (future integration, see
+  `docs/roadmap.md` v0.3) and trigger a manual retrain reviewed by a responsible
+  clinical pharmacist / data scientist.
 
-## Reprodutibilidade
-- `docker-compose.yml` fixa versoes de Postgres/Python; `pyproject.toml` fixa
-  versoes minimas de dependencias.
-- Seeds fixas (`--seed`) em todos os scripts de geracao de dados e split de treino/teste.
-- Pipeline completo de bootstrap: `scripts/run_pipeline.sh`.
+## Reproducibility
+- `docker-compose.yml` pins Postgres/Python versions; `pyproject.toml` pins minimum
+  dependency versions.
+- Fixed seeds (`--seed`) in all data-generation scripts and in the train/test split.
+- Full bootstrap pipeline: `scripts/run_pipeline.sh`.
 
-## Gate de qualidade antes de novo modelo entrar em producao
-1. ROC-AUC em holdout >= baseline atual - 0.02 (nao pode regredir significativamente).
-2. Revisao humana da tabela `feature_importances_` (nada clinicamente implausivel).
-3. Testes unitarios de regras (Beers/DDI/polifarmacia) continuam 100% passando —
-   o modelo de ML e sempre complementar as regras determinísticas, nunca as substitui.
+## Quality gate before a new model reaches production
+1. Holdout ROC-AUC ≥ current baseline − 0.02 (no significant regression allowed).
+2. Human review of the `feature_importances_` table (nothing clinically
+   implausible).
+3. The rule unit tests (Beers/DDI/polypharmacy) still pass 100% — the ML model is
+   always complementary to the deterministic rules, never a replacement for them.

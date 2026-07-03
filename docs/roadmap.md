@@ -1,38 +1,41 @@
 # Roadmap
 
-## v0.1 — Prototipo (atual)
-- [x] Arquitetura limpa (domain/application/infrastructure/interface).
-- [x] Schema PostgreSQL + subconjunto ilustrativo de criterios Beers 2023.
-- [x] Motor de regras: PIM, polifarmacia/hiperpolifarmacia, DDI, ajuste renal.
-- [x] API FastAPI + dashboard Streamlit.
-- [x] Geracao de dados sinteticos + ETL.
-- [x] Modelo de ML (RandomForest) com rotulo sintetico + tracking MLflow.
-- [x] Suite de testes (unit + integration), CI no GitHub Actions.
-- [x] Relatorio reprodutivel R/Quarto.
-- [x] Documentacao tecnica completa.
+## v0.1 — Prototype (current)
+- [x] Clean architecture (domain/application/infrastructure/interface).
+- [x] PostgreSQL schema + illustrative subset of the 2023 Beers criteria.
+- [x] Rule engine: PIM, polypharmacy/hyperpolypharmacy, DDI, renal adjustment.
+- [x] FastAPI API + Streamlit dashboard.
+- [x] Synthetic data generation + ETL.
+- [x] ML model (RandomForest) with a synthetic label + MLflow tracking.
+- [x] Test suite (unit + integration), CI on GitHub Actions.
+- [x] Reproducible R/Quarto report.
+- [x] Complete technical documentation.
 
-## v0.2 — Robustez e cobertura clinica
-- [ ] Expandir `beers_pim_criteria` para categoria "Usar com cautela" (ainda
-      nao coberta pelo motor de regras).
-- [ ] Suporte a STOPP/START v3 como segunda fonte de criterios (comparacao
-      cruzada de alertas).
-- [ ] Autenticacao OAuth2/OIDC real substituindo o stub de API Key.
-- [ ] Fila assincrona (ex.: Celery/RQ) para reavaliacao em lote de coortes grandes.
-- [ ] Explicabilidade por instancia (SHAP) no modelo de ML, alem de importancia global.
-- [ ] Internacionalizacao dos textos de alerta (pt-BR / en-US).
+## v0.2 — Robustness and clinical coverage
+- [ ] Extend `beers_pim_criteria` to the "use with caution" category (not yet
+      covered by the rule engine).
+- [ ] Support STOPP/START v3 as a second criteria source (cross-comparison of
+      alerts).
+- [ ] Real OAuth2/OIDC authentication replacing the API-key stub.
+- [ ] Asynchronous queue (e.g., Celery/RQ) for batch re-assessment of large cohorts.
+- [ ] Per-instance explainability (SHAP) in the ML model, beyond global importance.
+- [ ] Internationalization of the alert texts (pt-BR / en-US).
 
-## v0.3 — Escala e observabilidade
-- [ ] Dashboard multi-paciente com filtros populacionais (unidade, faixa etaria, risco).
-- [ ] Integracao HL7 FHIR (recurso `MedicationRequest`/`Condition`) para
-      ingestao a partir de prontuarios eletronicos reais (com anonimizacao).
-- [ ] Alertas automaticos de drift (Evidently) abrindo issue via API do GitHub.
-- [ ] Auditoria completa de decisao (quem reconheceu/descartou cada alerta, com justificativa obrigatoria).
-- [ ] Row-Level Security no PostgreSQL para multi-tenancy (multiplas instituicoes).
+## v0.3 — Scale and observability
+- [ ] Multi-patient dashboard with population filters (unit, age band, risk).
+- [ ] HL7 FHIR integration (`MedicationRequest` / `Condition` resources) for
+      ingestion from real electronic health records (with anonymization).
+- [ ] Automatic drift alerts (Evidently) opening an issue via the GitHub API.
+- [ ] Full decision auditing (who acknowledged/dismissed each alert, with a
+      mandatory justification).
+- [ ] Row-Level Security in PostgreSQL for multi-tenancy (multiple institutions).
 
-## v1.0 — Release estavel
-- [ ] Validacao com dataset golden revisado por farmaceutico clinico
-      (concordancia >=95% — ver `docs/clinical_validation.md`).
-- [ ] Retreino do modelo de ML com rotulo clinico real (nao mais sintetico).
-- [ ] Documentacao de conformidade LGPD/GDPR revisada por especialista juridico.
-- [ ] Avaliacao formal de enquadramento regulatorio (SaMD) caso destinado a uso assistencial real.
-- [ ] Publicacao de artigo/whitepaper descrevendo metodologia e resultados de validacao.
+## v1.0 — Stable release
+- [ ] Validation against a golden dataset reviewed by a clinical pharmacist
+      (agreement ≥ 95% — see `docs/clinical_validation.md`).
+- [ ] Retraining of the ML model with a real clinical label (no longer synthetic).
+- [ ] LGPD/GDPR compliance documentation reviewed by a legal specialist.
+- [ ] Formal assessment of regulatory classification (SaMD) if intended for real
+      assistive use.
+- [ ] Publication of a paper/whitepaper describing the methodology and validation
+      results.
