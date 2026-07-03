@@ -1,34 +1,79 @@
-[build-system]
-requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "medstock-optimizer"
+name = "seniorrx-monitor"
 version = "0.1.0"
-description = "Hospital pharmacy inventory forecasting, replenishment simulation and automated reporting."
+description = "Plataforma de deteccao de PIM (AGS Beers Criteria 2023) e polifarmacia em idosos"
 readme = "README.md"
-requires-python = ">=3.10"
-authors = [{ name = "Healthtech Portfolio" }]
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Samuel Brener" }]
+
 dependencies = [
-    "numpy>=1.24",
-    "openpyxl>=3.1",
-    "pandas>=2.0",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.1",
+    "pydantic>=2.7",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "scikit-learn>=1.4",
+    "joblib>=1.4",
+    "mlflow>=2.13",
+    "streamlit>=1.35",
+    "requests>=2.32",
+    "python-dotenv>=1.0",
+    "slowapi>=0.1.9",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
+    "pytest>=8.2",
+    "pytest-cov>=5.0",
+    "httpx>=0.27",
     "ruff>=0.4",
+    "mypy>=1.10",
+    "evidently>=0.4",
+    "bandit>=1.7",
+    "pip-audit>=2.7",
 ]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+markers = [
+    "integration: testes que exigem um PostgreSQL disponivel (ver tests/integration/conftest.py)",
+]
+addopts = "--cov=seniorrx --cov-report=term-missing --cov-fail-under=80"
+
+[tool.coverage.run]
+source = ["src/seniorrx"]
+omit = ["*/interface/dashboard/*"]
 
 [tool.ruff]
-line-length = 100
-target-version = "py310"
+line-length = 110
+target-version = "py311"
+src = ["src", "tests", "scripts"]
 
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "N"]
+# E501: formatado por ruff format, nao por line-length manual.
+# B008: Depends(...)/Header(...) em default de argumento e o padrao idiomatico do FastAPI.
+ignore = ["E501", "B008"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["seniorrx"]
+mypy_path = "src"
+strict = true
+warn_return_any = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.bandit]
+# SAST focado no codigo de aplicacao; testes usam asserts/dados fake por design.
+exclude_dirs = ["tests", ".venv", "build"]

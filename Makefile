@@ -1,7 +1,14 @@
-.PHONY: install lint typecheck test test-unit cov run-api run-dashboard up down
+.PHONY: install secrets lint typecheck security test test-unit cov run-api run-dashboard up down
 
 install:
 	pip install -e ".[dev]"
+
+secrets:
+	bash scripts/gen_secrets.sh
+
+security:
+	bandit -r src -ll
+	pip-audit || true
 
 lint:
 	ruff check src tests scripts

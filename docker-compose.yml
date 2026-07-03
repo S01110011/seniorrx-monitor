@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: seniorrx
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env (veja .env.example)}
       POSTGRES_DB: seniorrx
     ports:
       - "5432:5432"
@@ -26,7 +26,7 @@ services:
         condition: service_healthy
     command: >
       python scripts/init_db.py
-      --database-url postgresql://seniorrx:${POSTGRES_PASSWORD:-changeme}@db:5432/seniorrx
+      --database-url postgresql://seniorrx:${POSTGRES_PASSWORD:?defina no .env (veja .env.example)}@db:5432/seniorrx
     restart: "no"
 
   api:
@@ -39,9 +39,9 @@ services:
       init:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql+psycopg://seniorrx:${POSTGRES_PASSWORD:-changeme}@db:5432/seniorrx
+      DATABASE_URL: postgresql+psycopg://seniorrx:${POSTGRES_PASSWORD:?defina no .env (veja .env.example)}@db:5432/seniorrx
       SENIORRX_ENV: ${SENIORRX_ENV:-development}
-      SENIORRX_API_KEY: ${SENIORRX_API_KEY:-changeme}
+      SENIORRX_API_KEY: ${SENIORRX_API_KEY:?defina no .env (gere com: python -c "import secrets;print(secrets.token_urlsafe(32))")}
       SENIORRX_CORS_ORIGINS: http://localhost:8501
       SENIORRX_RATE_LIMIT: ${SENIORRX_RATE_LIMIT:-120/minute}
     ports:
@@ -55,7 +55,7 @@ services:
       - api
     environment:
       SENIORRX_API_URL: http://api:8000
-      SENIORRX_API_KEY: ${SENIORRX_API_KEY:-changeme}
+      SENIORRX_API_KEY: ${SENIORRX_API_KEY:?defina no .env (gere com: python -c "import secrets;print(secrets.token_urlsafe(32))")}
     ports:
       - "8501:8501"
 

@@ -1,127 +1,179 @@
-# HealthTech Portfolio — Samuel Brener
+# SeniorRx Monitor
 
-Two production-minded Python projects that apply data engineering, clinical
-domain knowledge and MLOps to real problems in hospital pharmacy and geriatric
-patient safety. Both use **synthetic data only** and are safe for public GitHub.
+**Plataforma de deteccao de Medicamentos Potencialmente Inapropriados (PIM) e
+polifarmacia em idosos, baseada nos AGS Beers Criteria(R) 2023.**
 
-| Project | Focus | Stack highlights | Location |
-|---|---|---|---|
-| **MedStock Optimizer** | Hospital pharmacy **inventory** planning: demand forecasting, safety stock, reorder points, replenishment simulation, operational reports | Python, forecasting, pandas, pytest, GitHub Actions | this repository root |
-| **SeniorRx Monitor** | **Medication safety** in older adults: detection of Potentially Inappropriate Medications (AGS Beers Criteria® 2023), polypharmacy and drug interactions | FastAPI, PostgreSQL, SQLAlchemy, scikit-learn/MLflow, Streamlit, R/Quarto, Docker | [`seniorrx-monitor/`](seniorrx-monitor/) |
+[![CI](https://github.com/S01110011/seniorrx-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/S01110011/seniorrx-monitor/actions/workflows/ci.yml)
+[![Model Monitoring](https://github.com/S01110011/seniorrx-monitor/actions/workflows/model-monitoring.yml/badge.svg)](https://github.com/S01110011/seniorrx-monitor/actions/workflows/model-monitoring.yml)
+![coverage](https://img.shields.io/badge/coverage-%E2%89%A580%25-brightgreen)
+![python](https://img.shields.io/badge/python-3.11%2B-blue)
+![license](https://img.shields.io/badge/license-MIT-informational)
+![security](https://img.shields.io/badge/security-bandit%20%7C%20pip--audit%20%7C%20gitleaks-orange)
+![status](https://img.shields.io/badge/status-v0.1%20prototipo-yellow)
 
-> **SeniorRx Monitor** is a full clinical-decision-support platform — clean
-> architecture (domain/application/infrastructure/interface), a validated
-> Beers-2023 rule engine, a Dockerized API + dashboard, hardened security and a
-> reproducible epidemiological report. See its own
-> [README](seniorrx-monitor/README.md) and
-> [technical deep-dive](seniorrx-monitor/docs/DEEP_DIVE.md).
->
-> Both projects are for research/education and do not replace professional
-> clinical judgement.
+> **Aviso:** projeto de pesquisa/educacao. Usa exclusivamente dados
+> sinteticos. Os alertas gerados **nao substituem julgamento clinico** nem
+> constituem dispositivo medico regulado. Ver [`docs/clinical_validation.md`](docs/clinical_validation.md).
 
----
+## O que este projeto faz
 
-# MedStock Optimizer
+Idosos com polifarmacia (uso de multiplos medicamentos) tem risco elevado de
+reacoes adversas, muitas vezes evitaveis porque ja sao conhecidas e
+catalogadas pela literatura geriatrica. O **SeniorRx Monitor** implementa,
+como software auditavel e testado, um subconjunto ilustrativo dos
+[AGS Beers Criteria(R) 2023](https://doi.org/10.1111/jgs.18372) para:
 
-MedStock Optimizer is a professional Python healthtech project for hospital pharmacy inventory planning.
+- Detectar **polifarmacia** (>=5 medicamentos) e **hiperpolifarmacia** (>=10);
+- Sinalizar **PIM** (Medicamentos Potencialmente Inapropriados), independentes
+  de diagnostico ou condicionados a comorbidades especificas (ex.: AINE em
+  insuficiencia cardiaca);
+- Identificar **interacoes medicamento-medicamento** de alto risco (ex.:
+  opioide + benzodiazepinico, varfarina + AINE, "triple whammy" IECA+diuretico+AINE);
+- Alertar sobre necessidade de **ajuste por funcao renal** (eGFR);
+- Consolidar tudo em um **nivel de risco farmacoterapeutico** explicavel,
+  exposto via API REST e visualizado em dashboard clinico.
 
-It forecasts medication demand, calculates safety stock and reorder points, simulates replenishment decisions and exports operational reports in CSV and Excel.
+Ver [`docs/beers_criteria.md`](docs/beers_criteria.md) para conceitos-chave
+(polifarmacia, PIM, metodologia Beers) e o disclaimer sobre a natureza
+ilustrativa (nao exaustiva) do conjunto de criterios implementado.
 
-## Hospital Challenge
+## Arquitetura
 
-Hospital pharmacies need to avoid both stockouts and excess inventory. Stockouts can interrupt care, while overstock increases waste, expiration losses and working capital pressure.
+Clean Architecture em 4 camadas — regras clinicas 100% desacopladas de
+banco de dados e framework web (ver [`docs/architecture.md`](docs/architecture.md)):
 
-This project helps pharmacy and supply-chain teams answer:
-
-- Which medications are at risk of stockout?
-- Which items are overstocked?
-- How much should be reordered?
-- What is the projected inventory position over the next weeks?
-- Which SKUs are high-priority due to criticality, lead time or volatile demand?
-
-## Features
-
-- Synthetic hospital medication demand generation
-- Daily demand forecasting by medication SKU
-- Safety stock and reorder point calculation
-- Replenishment simulation with lead times
-- Stockout, overstock and expiration-risk alerts
-- Automated CSV and Excel reports
-- Unit tests for forecasting, inventory policies and reporting
-- GitHub Actions CI
-
-## Project Structure
-
-```text
-medstock-optimizer/
-├── data/
-│   └── README.md
-├── docs/
-│   └── methodology.md
-├── reports/
-│   └── README.md
-├── src/
-│   └── medstock_optimizer/
-│       ├── __init__.py
-│       ├── alerts.py
-│       ├── config.py
-│       ├── data.py
-│       ├── forecasting.py
-│       ├── inventory.py
-│       ├── reporting.py
-│       └── simulation.py
-├── tests/
-│   ├── test_forecasting.py
-│   ├── test_inventory.py
-│   └── test_pipeline.py
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-├── .gitignore
-├── pyproject.toml
-└── README.md
 ```
+interface/       FastAPI (API REST) + Streamlit (dashboard)
+application/     Servicos que orquestram os motores de regra
+domain/          Entidades + motores de regra (Beers, polifarmacia, interacoes) — nucleo puro
+infrastructure/  SQLAlchemy (PostgreSQL) + modelo de ML (scikit-learn/MLflow)
+```
+
+## Stack tecnologico
+
+| Camada | Tecnologia | Por que |
+|---|---|---|
+| API | FastAPI | Tipagem nativa (Pydantic), performance assincrona, OpenAPI automatico |
+| Banco | PostgreSQL | JSONB, UUID, colunas geradas, maturidade em saude |
+| ORM | SQLAlchemy 2.x | Separacao clara ORM <-> entidades de dominio |
+| ML | scikit-learn + MLflow | Interpretabilidade priorizada; tracking de experimentos |
+| Dashboard | Streamlit | Prototipagem rapida de UI clinica interativa |
+| Analise reprodutivel | R + Quarto | Relatorios epidemiologicos versionaveis e citaveis |
+| Orquestracao local | Docker Compose | `db` + `api` + `dashboard` com um comando |
+| CI/CD | GitHub Actions | Lint, typecheck, testes, build de imagem, drift semanal |
 
 ## Quickstart
 
-From this folder:
+```bash
+git clone https://github.com/S01110011/seniorrx-monitor.git
+cd seniorrx-monitor
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
+# Gera um .env com segredos FORTES e aleatorios (obrigatorio: o compose falha sem eles)
+make secrets          # ou: bash scripts/gen_secrets.sh
+
+# Sobe Postgres + API + Dashboard
+docker compose up --build
+
+# Em outro terminal: inicializa schema, gera dados sinteticos, roda ETL e treina o modelo
+python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
+bash scripts/run_pipeline.sh
 ```
 
-Generate synthetic pharmacy data:
+Acesse:
+- API: http://localhost:8000/docs (Swagger UI)
+- Dashboard: http://localhost:8501
 
-```powershell
-python -m medstock_optimizer.data --demand-out data/daily_demand.csv --inventory-out data/inventory.csv --days 365 --sku-count 40
+### Rodando sem Docker
+
+```bash
+pip install -e ".[dev]"
+python scripts/init_db.py --database-url "$DATABASE_URL"
+python scripts/generate_synthetic_data.py --n-patients 500
+python scripts/etl_pipeline.py
+uvicorn seniorrx.interface.api.main:app --reload &
+streamlit run src/seniorrx/interface/dashboard/streamlit_app.py
 ```
 
-Run optimization and export reports:
+### Testes
 
-```powershell
-python -m medstock_optimizer.reporting --demand data/daily_demand.csv --inventory data/inventory.csv --report-dir reports
+```bash
+make lint          # ruff
+make typecheck      # mypy --strict
+make test-unit       # pytest, sem exigir banco
+make test            # pytest completo (inclui integration, requer TEST_DATABASE_URL)
+make cov              # relatorio HTML de cobertura
 ```
 
-Run tests and lint:
+## Exemplo de uso da API
 
-```powershell
-python -m pytest
-python -m ruff check .
+```bash
+curl -H "X-API-Key: $SENIORRX_API_KEY" \
+  http://localhost:8000/patients/<patient_id>/risk-assessment
 ```
 
-## Outputs
+```json
+{
+  "patient_id": "3f5a...",
+  "active_medication_count": 7,
+  "pim_count": 2,
+  "ddi_count": 1,
+  "comorbidity_count": 3,
+  "rule_based_risk_level": "ALTO",
+  "alerts": [
+    {
+      "alert_type": "PIM_BEERS",
+      "severity": "ALTA",
+      "message": "PIM (Beers 2023): Glibenclamida — Sulfonilureia de longa acao. ..."
+    }
+  ]
+}
+```
 
-The reporting command creates:
+## Estrutura de pastas
 
-- `reports/medstock_replenishment_plan.csv`
-- `reports/medstock_alerts.csv`
-- `reports/medstock_forecast.csv`
-- `reports/medstock_simulation.csv`
-- `reports/medstock_optimizer_report.xlsx`
+```
+seniorrx-monitor/
+├── src/seniorrx/           # codigo-fonte (domain/application/infrastructure/interface)
+├── sql/                    # schema.sql + seed dos criterios Beers 2023
+├── scripts/                # geracao de dados sinteticos, ETL, treino de ML, pipeline completo
+├── tests/                  # unit/ (sem banco) + integration/ (requer Postgres)
+├── configs/                # settings.yaml, logging.yaml, notas de MLOps
+├── data/                   # raw/ (CSV sinteticos) e processed/ (features, modelo) — nao versionados
+├── docs/                   # arquitetura, schema, criterios Beers, roadmap, validacao, referencias
+├── references/             # resumo detalhado das fontes clinicas dos criterios implementados
+├── reports/quarto/          # relatorio epidemiologico reprodutivel (R/Quarto)
+├── notebooks/                # EDA exploratoria (Jupyter)
+└── .github/                  # CI/CD, templates de issue/PR
+```
 
-## Portfolio Note
+Descricao completa de cada modulo em [`docs/architecture.md`](docs/architecture.md).
 
-The data is synthetic and safe for public GitHub. The project demonstrates Python engineering, forecasting, healthcare supply-chain reasoning and automated reporting.
+## Documentacao
+
+| Documento | Conteudo |
+|---|---|
+| [`docs/architecture.md`](docs/architecture.md) | Arquitetura em camadas, fluxo de dados, decisoes tecnicas |
+| [`docs/database_schema.md`](docs/database_schema.md) | Modelo relacional detalhado |
+| [`docs/beers_criteria.md`](docs/beers_criteria.md) | Conceitos clinicos + disclaimer sobre o subconjunto implementado |
+| [`docs/clinical_validation.md`](docs/clinical_validation.md) | Estrategia de validacao cientifica (regras + ML) |
+| [`docs/references.md`](docs/references.md) | Referencias cientificas completas |
+| [`docs/roadmap.md`](docs/roadmap.md) | Milestones v0.1 -> v1.0 |
+| [`docs/initial_issues.md`](docs/initial_issues.md) | Issues iniciais sugeridas + mensagens de commit |
+| [`docs/linkedin_pitch.md`](docs/linkedin_pitch.md) / [`docs/interview_talking_points.md`](docs/interview_talking_points.md) | Apresentacao do projeto para portfolio |
+| [`configs/mlops.md`](configs/mlops.md) | Estrategia de MLflow, DVC, Evidently AI |
+| [`SECURITY.md`](SECURITY.md) / [`CONTRIBUTING.md`](CONTRIBUTING.md) | Seguranca e como contribuir |
+
+## Privacidade e conformidade
+
+Nenhum dado real de paciente e usado ou armazenado. O schema nao possui
+campos de PII (nome, CPF, endereco); pacientes sao identificados por
+pseudonimo nao reversivel. Ver [`data/README.md`](data/README.md) e
+[`SECURITY.md`](SECURITY.md) para a politica completa (referenciando LGPD/GDPR).
+
+## Licenca
+
+Codigo sob [MIT License](LICENSE). O conteudo clinico dos AGS Beers
+Criteria(R) e propriedade da American Geriatrics Society — este repositorio
+implementa apenas um subconjunto ilustrativo com fins educacionais (ver
+[`docs/beers_criteria.md`](docs/beers_criteria.md)).
