@@ -1,7 +1,7 @@
 # SeniorRx Monitor
 
-**Plataforma de deteccao de Medicamentos Potencialmente Inapropriados (PIM) e
-polifarmacia em idosos, baseada nos AGS Beers Criteria(R) 2023.**
+**Plataforma de detecção de Medicamentos Potencialmente Inapropriados (PIM) e
+polifarmácia em idosos, baseada nos AGS Beers Criteria® 2023.**
 
 [![CI](https://github.com/S01110011/seniorrx-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/S01110011/seniorrx-monitor/actions/workflows/ci.yml)
 [![Model Monitoring](https://github.com/S01110011/seniorrx-monitor/actions/workflows/model-monitoring.yml/badge.svg)](https://github.com/S01110011/seniorrx-monitor/actions/workflows/model-monitoring.yml)
@@ -9,72 +9,74 @@ polifarmacia em idosos, baseada nos AGS Beers Criteria(R) 2023.**
 ![python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-informational)
 ![security](https://img.shields.io/badge/security-bandit%20%7C%20pip--audit%20%7C%20gitleaks-orange)
-![status](https://img.shields.io/badge/status-v0.1%20prototipo-yellow)
+![status](https://img.shields.io/badge/status-v0.1%20prot%C3%B3tipo-yellow)
 
-> **Aviso:** projeto de pesquisa/educacao. Usa exclusivamente dados
-> sinteticos. Os alertas gerados **nao substituem julgamento clinico** nem
-> constituem dispositivo medico regulado. Ver [`docs/clinical_validation.md`](docs/clinical_validation.md).
+> **Aviso:** projeto de pesquisa e educação. Usa exclusivamente dados
+> sintéticos. Os alertas gerados **não substituem o julgamento clínico** nem
+> constituem dispositivo médico regulado. Ver [`docs/clinical_validation.md`](docs/clinical_validation.md).
 
 ## O que este projeto faz
 
-Idosos com polifarmacia (uso de multiplos medicamentos) tem risco elevado de
-reacoes adversas, muitas vezes evitaveis porque ja sao conhecidas e
-catalogadas pela literatura geriatrica. O **SeniorRx Monitor** implementa,
-como software auditavel e testado, um subconjunto ilustrativo dos
-[AGS Beers Criteria(R) 2023](https://doi.org/10.1111/jgs.18372) para:
+Idosos em polifarmácia (uso de múltiplos medicamentos) têm risco elevado de
+reações adversas, muitas vezes evitáveis, porque já são conhecidas e
+catalogadas pela literatura geriátrica. O **SeniorRx Monitor** implementa,
+como software auditável e testado, um subconjunto ilustrativo dos
+[AGS Beers Criteria® 2023](https://doi.org/10.1111/jgs.18372) para:
 
-- Detectar **polifarmacia** (>=5 medicamentos) e **hiperpolifarmacia** (>=10);
-- Sinalizar **PIM** (Medicamentos Potencialmente Inapropriados), independentes
-  de diagnostico ou condicionados a comorbidades especificas (ex.: AINE em
-  insuficiencia cardiaca);
-- Identificar **interacoes medicamento-medicamento** de alto risco (ex.:
-  opioide + benzodiazepinico, varfarina + AINE, "triple whammy" IECA+diuretico+AINE);
-- Alertar sobre necessidade de **ajuste por funcao renal** (eGFR);
-- Consolidar tudo em um **nivel de risco farmacoterapeutico** explicavel,
-  exposto via API REST e visualizado em dashboard clinico.
+- detectar **polifarmácia** (≥ 5 medicamentos) e **hiperpolifarmácia** (≥ 10);
+- sinalizar **PIM** (Medicamentos Potencialmente Inapropriados), independentes
+  de diagnóstico ou condicionados a comorbidades específicas (por exemplo, AINE
+  em insuficiência cardíaca);
+- identificar **interações medicamento–medicamento** de alto risco (por exemplo,
+  opioide + benzodiazepínico, varfarina + AINE, o *triple whammy*
+  IECA/BRA + diurético + AINE);
+- alertar sobre a necessidade de **ajuste pela função renal** (eGFR);
+- consolidar tudo em um **nível de risco farmacoterapêutico** explicável,
+  exposto via API REST e visualizado em um painel clínico.
 
-Ver [`docs/beers_criteria.md`](docs/beers_criteria.md) para conceitos-chave
-(polifarmacia, PIM, metodologia Beers) e o disclaimer sobre a natureza
-ilustrativa (nao exaustiva) do conjunto de criterios implementado.
+Ver [`docs/beers_criteria.md`](docs/beers_criteria.md) para os conceitos-chave
+(polifarmácia, PIM, metodologia Beers) e o aviso sobre a natureza ilustrativa
+(não exaustiva) do conjunto de critérios implementado.
 
 ## Arquitetura
 
-Clean Architecture em 4 camadas — regras clinicas 100% desacopladas de
-banco de dados e framework web (ver [`docs/architecture.md`](docs/architecture.md)):
+Arquitetura limpa (*clean architecture*) em quatro camadas — as regras clínicas
+são 100% desacopladas do banco de dados e do framework web (ver
+[`docs/architecture.md`](docs/architecture.md)):
 
 ```
-interface/       FastAPI (API REST) + Streamlit (dashboard)
-application/     Servicos que orquestram os motores de regra
-domain/          Entidades + motores de regra (Beers, polifarmacia, interacoes) — nucleo puro
+interface/       FastAPI (API REST) + Streamlit (painel)
+application/     serviços que orquestram os motores de regra
+domain/          entidades + motores de regra (Beers, polifarmácia, interações) — núcleo puro
 infrastructure/  SQLAlchemy (PostgreSQL) + modelo de ML (scikit-learn/MLflow)
 ```
 
-## Stack tecnologico
+## Pilha tecnológica
 
-| Camada | Tecnologia | Por que |
+| Camada | Tecnologia | Justificativa |
 |---|---|---|
-| API | FastAPI | Tipagem nativa (Pydantic), performance assincrona, OpenAPI automatico |
-| Banco | PostgreSQL | JSONB, UUID, colunas geradas, maturidade em saude |
-| ORM | SQLAlchemy 2.x | Separacao clara ORM <-> entidades de dominio |
-| ML | scikit-learn + MLflow | Interpretabilidade priorizada; tracking de experimentos |
-| Dashboard | Streamlit | Prototipagem rapida de UI clinica interativa |
-| Analise reprodutivel | R + Quarto | Relatorios epidemiologicos versionaveis e citaveis |
-| Orquestracao local | Docker Compose | `db` + `api` + `dashboard` com um comando |
-| CI/CD | GitHub Actions | Lint, typecheck, testes, build de imagem, drift semanal |
+| API | FastAPI | Tipagem nativa (Pydantic), desempenho assíncrono, OpenAPI automático |
+| Banco de dados | PostgreSQL | JSONB, UUID, *views*, maturidade em saúde |
+| ORM | SQLAlchemy 2.x | Separação clara entre ORM e entidades de domínio |
+| ML | scikit-learn + MLflow | Interpretabilidade priorizada; rastreamento de experimentos |
+| Painel | Streamlit | Prototipagem rápida de interface clínica interativa |
+| Análise reprodutível | R + Quarto | Relatórios epidemiológicos versionáveis e citáveis |
+| Orquestração local | Docker Compose | `db` + `api` + `dashboard` com um comando |
+| CI/CD | GitHub Actions | Lint, verificação de tipos, testes, build de imagem e checagem de *drift* |
 
-## Quickstart
+## Início rápido
 
 ```bash
 git clone https://github.com/S01110011/seniorrx-monitor.git
 cd seniorrx-monitor
 
-# Gera um .env com segredos FORTES e aleatorios (obrigatorio: o compose falha sem eles)
+# Gera um .env com segredos FORTES e aleatórios (obrigatório: o compose falha sem eles)
 make secrets          # ou: bash scripts/gen_secrets.sh
 
-# Sobe Postgres + API + Dashboard
+# Sobe PostgreSQL + API + painel
 docker compose up --build
 
-# Em outro terminal: inicializa schema, gera dados sinteticos, roda ETL e treina o modelo
+# Em outro terminal: inicializa o schema, gera dados sintéticos, roda o ETL e treina o modelo
 python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 bash scripts/run_pipeline.sh
@@ -82,9 +84,9 @@ bash scripts/run_pipeline.sh
 
 Acesse:
 - API: http://localhost:8000/docs (Swagger UI)
-- Dashboard: http://localhost:8501
+- Painel: http://localhost:8501
 
-### Rodando sem Docker
+### Execução sem Docker
 
 ```bash
 pip install -e ".[dev]"
@@ -99,10 +101,10 @@ streamlit run src/seniorrx/interface/dashboard/streamlit_app.py
 
 ```bash
 make lint          # ruff
-make typecheck      # mypy --strict
-make test-unit       # pytest, sem exigir banco
-make test            # pytest completo (inclui integration, requer TEST_DATABASE_URL)
-make cov              # relatorio HTML de cobertura
+make typecheck     # mypy --strict
+make test-unit     # pytest, sem exigir banco
+make test          # pytest completo (inclui integração; requer TEST_DATABASE_URL)
+make cov           # relatório HTML de cobertura
 ```
 
 ## Exemplo de uso da API
@@ -124,7 +126,7 @@ curl -H "X-API-Key: $SENIORRX_API_KEY" \
     {
       "alert_type": "PIM_BEERS",
       "severity": "ALTA",
-      "message": "PIM (Beers 2023): Glibenclamida — Sulfonilureia de longa acao. ..."
+      "message": "PIM (Beers 2023): Glibenclamida — sulfonilureia de longa ação. ..."
     }
   ]
 }
@@ -134,46 +136,46 @@ curl -H "X-API-Key: $SENIORRX_API_KEY" \
 
 ```
 seniorrx-monitor/
-├── src/seniorrx/           # codigo-fonte (domain/application/infrastructure/interface)
-├── sql/                    # schema.sql + seed dos criterios Beers 2023
-├── scripts/                # geracao de dados sinteticos, ETL, treino de ML, pipeline completo
-├── tests/                  # unit/ (sem banco) + integration/ (requer Postgres)
+├── src/seniorrx/           # código-fonte (domain/application/infrastructure/interface)
+├── sql/                    # schema.sql + seed dos critérios Beers 2023
+├── scripts/                # geração de dados sintéticos, ETL, treino de ML, pipeline completo
+├── tests/                  # unit/ (sem banco) + integration/ (requer PostgreSQL)
 ├── configs/                # settings.yaml, logging.yaml, notas de MLOps
-├── data/                   # raw/ (CSV sinteticos) e processed/ (features, modelo) — nao versionados
-├── docs/                   # arquitetura, schema, criterios Beers, roadmap, validacao, referencias
-├── references/             # resumo detalhado das fontes clinicas dos criterios implementados
-├── reports/quarto/          # relatorio epidemiologico reprodutivel (R/Quarto)
-├── notebooks/                # EDA exploratoria (Jupyter)
-└── .github/                  # CI/CD, templates de issue/PR
+├── data/                   # raw/ (CSV sintéticos) e processed/ (features, modelo) — não versionados
+├── docs/                   # arquitetura, schema, critérios Beers, roadmap, validação, referências
+├── references/             # resumo detalhado das fontes clínicas dos critérios implementados
+├── reports/quarto/         # relatório epidemiológico reprodutível (R/Quarto)
+├── notebooks/              # análise exploratória de dados (Jupyter)
+└── .github/                # CI/CD, templates de issue/PR
 ```
 
-Descricao completa de cada modulo em [`docs/architecture.md`](docs/architecture.md).
+A descrição completa de cada módulo está em [`docs/architecture.md`](docs/architecture.md).
 
-## Documentacao
+## Documentação
 
-| Documento | Conteudo |
+| Documento | Conteúdo |
 |---|---|
-| [`docs/architecture.md`](docs/architecture.md) | Arquitetura em camadas, fluxo de dados, decisoes tecnicas |
+| [`docs/architecture.md`](docs/architecture.md) | Arquitetura em camadas, fluxo de dados, decisões técnicas |
+| [`docs/DEEP_DIVE.md`](docs/DEEP_DIVE.md) | Análise técnica aprofundada de todo o sistema |
 | [`docs/database_schema.md`](docs/database_schema.md) | Modelo relacional detalhado |
-| [`docs/beers_criteria.md`](docs/beers_criteria.md) | Conceitos clinicos + disclaimer sobre o subconjunto implementado |
-| [`docs/clinical_validation.md`](docs/clinical_validation.md) | Estrategia de validacao cientifica (regras + ML) |
-| [`docs/references.md`](docs/references.md) | Referencias cientificas completas |
-| [`docs/roadmap.md`](docs/roadmap.md) | Milestones v0.1 -> v1.0 |
-| [`docs/initial_issues.md`](docs/initial_issues.md) | Issues iniciais sugeridas + mensagens de commit |
-| [`docs/linkedin_pitch.md`](docs/linkedin_pitch.md) / [`docs/interview_talking_points.md`](docs/interview_talking_points.md) | Apresentacao do projeto para portfolio |
-| [`configs/mlops.md`](configs/mlops.md) | Estrategia de MLflow, DVC, Evidently AI |
-| [`SECURITY.md`](SECURITY.md) / [`CONTRIBUTING.md`](CONTRIBUTING.md) | Seguranca e como contribuir |
+| [`docs/beers_criteria.md`](docs/beers_criteria.md) | Conceitos clínicos e aviso sobre o subconjunto implementado |
+| [`docs/clinical_validation.md`](docs/clinical_validation.md) | Estratégia de validação científica (regras e ML) |
+| [`docs/references.md`](docs/references.md) | Referências científicas completas |
+| [`docs/roadmap.md`](docs/roadmap.md) | Milestones da v0.1 à v1.0 |
+| [`docs/linkedin_pitch.md`](docs/linkedin_pitch.md) e [`docs/interview_talking_points.md`](docs/interview_talking_points.md) | Apresentação do projeto para portfólio |
+| [`configs/mlops.md`](configs/mlops.md) | Estratégia de MLflow, DVC e Evidently AI |
+| [`SECURITY.md`](SECURITY.md) e [`CONTRIBUTING.md`](CONTRIBUTING.md) | Segurança e como contribuir |
 
 ## Privacidade e conformidade
 
-Nenhum dado real de paciente e usado ou armazenado. O schema nao possui
-campos de PII (nome, CPF, endereco); pacientes sao identificados por
-pseudonimo nao reversivel. Ver [`data/README.md`](data/README.md) e
-[`SECURITY.md`](SECURITY.md) para a politica completa (referenciando LGPD/GDPR).
+Nenhum dado real de paciente é usado ou armazenado. O schema não possui campos
+de PII (nome, CPF, endereço); os pacientes são identificados por um pseudônimo
+não reversível. Ver [`data/README.md`](data/README.md) e [`SECURITY.md`](SECURITY.md)
+para a política completa (com referência à LGPD e ao GDPR).
 
-## Licenca
+## Licença
 
-Codigo sob [MIT License](LICENSE). O conteudo clinico dos AGS Beers
-Criteria(R) e propriedade da American Geriatrics Society — este repositorio
-implementa apenas um subconjunto ilustrativo com fins educacionais (ver
+Código sob a [licença MIT](LICENSE). O conteúdo clínico dos AGS Beers Criteria®
+é propriedade da American Geriatrics Society — este repositório implementa apenas
+um subconjunto ilustrativo, com fins educacionais (ver
 [`docs/beers_criteria.md`](docs/beers_criteria.md)).
