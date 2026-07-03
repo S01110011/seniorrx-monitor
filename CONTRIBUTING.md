@@ -54,7 +54,18 @@ uma pessoa com background clinico/farmaceutico, quando disponivel.
 - Arquitetura em camadas: `domain/` nao importa de `infrastructure/` ou `interface/`.
 - Cobertura de testes minima: 80% (`pytest --cov-fail-under=80`, ja configurado).
 
+## Governanca do repositorio
+
+- A branch `main` e **protegida**: mudancas entram via Pull Request com o CI
+  verde (lint, mypy, security-scan, testes e build Docker). Force-push e delecao
+  sao bloqueados e o historico e linear.
+- `.github/CODEOWNERS` solicita revisao automatica do mantenedor, especialmente
+  em conteudo clinico (`sql/`, `domain/`) e seguranca.
+- Roadmap organizado em milestones (v0.2, v0.3, v1.0) — ver as issues abertas.
+
 ## Codigo de conduta
 
-Seja respeitoso e construtivo. Discussoes clinicas podem ser tecnicas e
-divergentes — mantenha o foco em evidencia e seguranca do paciente.
+Este projeto adota o [Contributor Covenant](CODE_OF_CONDUCT.md). Ao participar,
+espera-se que voce respeite seus termos. Seja respeitoso e construtivo:
+discussoes clinicas podem ser tecnicas e divergentes — mantenha o foco em
+evidencia e seguranca do paciente.

@@ -1,0 +1,14 @@
+# Donos de código — revisão solicitada automaticamente em Pull Requests.
+# Ref: https://docs.github.com/en/repositories/managing-your-repos-settings/about-code-owners
+
+# Dono padrão de todo o repositório
+*                       @S01110011
+
+# Conteúdo clínico exige revisão cuidadosa (critérios Beers, seeds, regras)
+/sql/                   @S01110011
+/src/seniorrx/domain/   @S01110011
+/docs/beers_criteria.md @S01110011
+
+# Segurança
+/src/seniorrx/interface/api/security.py @S01110011
+/SECURITY.md            @S01110011
