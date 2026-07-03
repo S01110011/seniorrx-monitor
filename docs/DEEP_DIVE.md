@@ -1,272 +1,276 @@
-# SeniorRx Monitor — Análise Técnica Aprofundada
+# SeniorRx Monitor — Technical Deep Dive
 
-> Documento de referência que escrevi para explicar, de ponta a ponta, **por que**
-> cada parte deste sistema existe e **como** ela funciona. Serve tanto como memória
-> técnica do projeto quanto como base para apresentá-lo em entrevistas.
+🌐 **English** · [Português](DEEP_DIVE.pt-BR.md)
+
+> A reference document I wrote to explain, end to end, **why** each part of this
+> system exists and **how** it works. It serves both as the project's technical
+> memory and as a basis for presenting it in interviews.
 >
-> Aviso: projeto de pesquisa/educação. Não substitui julgamento clínico e usa
-> exclusivamente dados sintéticos.
+> Disclaimer: research/education project. It does not replace clinical judgement
+> and uses synthetic data only.
 
 ---
 
-## 1. O problema que decidi resolver
+## 1. The problem I set out to solve
 
-Pacientes idosos (≥65 anos) concentram a maior carga de **polifarmácia** — o uso
-simultâneo de vários medicamentos — e, com ela, de **reações adversas a
-medicamentos (RAM)**. Boa parte dessas reações é previsível e evitável, porque a
-literatura geriátrica já catalogou quais fármacos têm relação risco-benefício
-desfavorável nessa população. O instrumento de referência para isso é o
-**AGS Beers Criteria® 2023**, publicado pela American Geriatrics Society.
+Older adults (≥ 65 years) carry the heaviest burden of **polypharmacy** — the
+simultaneous use of several medications — and, with it, of **adverse drug
+reactions (ADRs)**. Much of that harm is predictable and avoidable, because the
+geriatric literature has already catalogued which drugs have an unfavorable
+risk–benefit balance in this population. The reference instrument for this is the
+**2023 AGS Beers Criteria®**, published by the American Geriatrics Society.
 
-O problema prático é que essa checagem raramente é feita de forma sistemática no
-momento da prescrição. Eu quis construir um sistema que faça exatamente isso:
-receber o perfil farmacoterapêutico de um paciente idoso e devolver, de forma
-auditável e explicável, os **Medicamentos Potencialmente Inapropriados (PIM)**,
-as **interações perigosas**, a **polifarmácia** e um **nível de risco**
-consolidado — cada alerta rastreável à sua fonte científica.
+The practical problem is that this check is rarely performed systematically at the
+point of prescription. I wanted to build a system that does exactly that: take an
+older patient's pharmacotherapeutic profile and return, in an auditable and
+explainable way, the **Potentially Inappropriate Medications (PIM)**, the
+**dangerous interactions**, the **polypharmacy**, and a consolidated **risk
+level** — with every alert traceable to its scientific source.
 
-Defini desde o início três princípios inegociáveis:
+From the outset I set three non-negotiable principles:
 
-1. **Transparência total.** Nada de "caixa-preta": todo alerta aponta para a
-   regra e a referência que o gerou.
-2. **Segurança e privacidade por construção.** Sem PII no modelo de dados; tudo
-   sintético; segredos fora do código.
-3. **Honestidade científica.** O sistema é apoio à decisão, não diagnóstico, e eu
-   marco explicitamente o que é regra validada versus o que é sinal estatístico
-   exploratório.
+1. **Full transparency.** No "black box": every alert points to the rule and the
+   reference that generated it.
+2. **Security and privacy by design.** No PII in the data model; everything
+   synthetic; secrets kept out of the code.
+3. **Scientific honesty.** The system is decision support, not diagnosis, and I
+   explicitly mark what is a validated rule versus an exploratory statistical
+   signal.
 
 ---
 
-## 2. Por que arquitetura limpa (e o que isso me deu)
+## 2. Why clean architecture (and what it gave me)
 
-Organizei o código em quatro camadas concêntricas, com a regra de dependência
-apontando sempre para dentro:
+I organized the code into four concentric layers, with the dependency rule always
+pointing inward:
 
 ```
 interface  →  application  →  domain  ←  infrastructure
-(FastAPI/     (serviços      (regras     (SQLAlchemy,
- Streamlit)    de caso de     clínicas    modelo de ML)
-               uso)           puras)
+(FastAPI/     (use-case      (pure       (SQLAlchemy,
+ Streamlit)    services)      clinical    ML model)
+                              rules)
 ```
 
-- **`domain/`** é o coração e não importa **nada** de framework — nem SQLAlchemy,
-  nem FastAPI, nem pandas. São `dataclasses` imutáveis (`Patient`, `Prescription`,
-  `BeersCriterion`, `Alert`) e os três motores de regra. Isso me permite testar
-  100% da lógica clínica em milissegundos, sem subir banco nem servidor.
-- **`application/`** orquestra os motores e devolve DTOs — objetos de saída que
-  não vazam os enums internos do domínio para o mundo externo.
-- **`infrastructure/`** implementa o "como": mapeamento ORM, repositórios que
-  traduzem linhas de banco em entidades de domínio, e o modelo de ML.
-- **`interface/`** expõe tudo via HTTP (FastAPI) e visualização (Streamlit).
+- **`domain/`** is the heart and imports **nothing** from any framework — no
+  SQLAlchemy, no FastAPI, no pandas. It holds immutable `dataclasses` (`Patient`,
+  `Prescription`, `BeersCriterion`, `Alert`) and the three rule engines. This lets
+  me test 100% of the clinical logic in milliseconds, without standing up a
+  database or a server.
+- **`application/`** orchestrates the engines and returns DTOs — output objects
+  that do not leak the domain's internal enums to the outside world.
+- **`infrastructure/`** implements the "how": ORM mapping, repositories that
+  translate database rows into domain entities, and the ML model.
+- **`interface/`** exposes everything over HTTP (FastAPI) and visualization
+  (Streamlit).
 
-O ganho concreto dessa separação apareceu na prática: quando validei o sistema,
-consegui rodar os 16 testes de regra sem nenhuma dependência externa, e mais tarde
-exercitei a stack inteira contra PostgreSQL real sem tocar **uma linha** de lógica
-clínica. Se amanhã eu trocar Postgres por outro banco ou a API por gRPC, o
-`domain/` permanece intacto.
+The concrete payoff of this separation showed up in practice: when I validated the
+system, I could run the 16 rule tests with no external dependency, and later
+exercise the whole stack against a real PostgreSQL without touching **a single
+line** of clinical logic. If tomorrow I swap Postgres for another database or the
+API for gRPC, `domain/` stays intact.
 
 ---
 
-## 3. O motor de regras clínicas (o núcleo de valor)
+## 3. The clinical rule engine (the core of the value)
 
-Dividi a avaliação em três motores independentes, todos operando sobre entidades
-de domínio:
+I split the evaluation into three independent engines, all operating on domain
+entities:
 
 ### 3.1 `BeersRulesEngine` — PIM
-Cobre as duas primeiras categorias dos Beers 2023:
-- **PIM independente de diagnóstico**: fármacos a evitar em qualquer idoso
-  (benzodiazepínicos, anti-histamínicos de 1ª geração, glibenclamida, AINEs
-  crônicos, relaxantes musculares, etc.). O casamento é por **prefixo ATC** —
-  assim um único critério `N05BA` cobre a classe inteira dos benzodiazepínicos.
-- **PIM por condição específica**: fármacos seguros em geral, mas contraindicados
-  numa comorbidade (ex.: AINE em insuficiência cardíaca `I50`). Aqui cruzo o ATC
-  do medicamento com os códigos **ICD-10** ativos do paciente.
+Covers the first two Beers 2023 categories:
+- **PIM independent of diagnosis**: drugs to avoid in any older adult
+  (benzodiazepines, first-generation antihistamines, glibenclamide, chronic
+  NSAIDs, muscle relaxants, etc.). Matching is by **ATC prefix** — so a single
+  criterion `N05BA` covers the entire benzodiazepine class.
+- **Disease-specific PIM**: drugs that are generally safe but contraindicated in a
+  given comorbidity (e.g., NSAIDs in heart failure `I50`). Here I cross the drug's
+  ATC code with the patient's active **ICD-10** codes.
 
-Um detalhe que cuidei: certos critérios só valem acima de um **limiar de uso
-crônico** (IBP > 8 semanas, metoclopramida > 12 semanas). Modelei isso comparando
-`prescription.duration_days` com o limiar, para não gerar falso-positivo em uso
-agudo legítimo.
+One detail I took care of: certain criteria only apply above a **chronic-use
+threshold** (PPIs > 8 weeks, metoclopramide > 12 weeks). I modeled this by
+comparing `prescription.duration_days` with the threshold, so as not to produce a
+false positive on legitimate acute use.
 
 ### 3.2 `PolypharmacyRulesEngine`
-Aplica os limiares de consenso da literatura: **≥5** medicamentos ativos =
-polifarmácia (severidade moderada); **≥10** = hiperpolifarmácia (crítica, sugere
-revisão estruturada / deprescrição).
+Applies the literature's consensus thresholds: **≥ 5** active medications =
+polypharmacy (moderate severity); **≥ 10** = hyperpolypharmacy (critical,
+suggesting structured review / deprescribing).
 
 ### 3.3 `InteractionRulesEngine`
-Faz duas coisas reusando a mesma tabela de critérios:
-- **Interações medicamento-medicamento** par-a-par (`itertools.combinations`),
-  cobrindo casos clássicos: opioide + benzodiazepínico, varfarina + AINE, o
-  *"triple whammy"* (IECA/BRA + diurético + AINE), IECA/BRA + espironolactona.
-- **Ajuste por função renal**: quando o eGFR do paciente cai abaixo do limiar de
-  um critério (ex.: metformina em DRC avançada), emito alerta de ajuste.
+Does two things reusing the same criteria table:
+- **Drug–drug interactions**, pairwise (`itertools.combinations`), covering
+  classic cases: opioid + benzodiazepine, warfarin + NSAID, the *"triple whammy"*
+  (ACEi/ARB + diuretic + NSAID), ACEi/ARB + spironolactone.
+- **Renal-function adjustment**: when the patient's eGFR falls below a criterion's
+  threshold (e.g., metformin in advanced CKD), I raise an adjustment alert.
 
-Todos os motores respeitam o escopo do Beers: só avaliam pacientes **≥65 anos** e
-**prescrições ativas**.
+All engines respect the Beers scope: they only evaluate patients **≥ 65 years**
+with **active prescriptions**.
 
 ---
 
-## 4. Do dado à decisão: o fluxo completo
+## 4. From data to decision: the full flow
 
 ```
-Prescrição/cadastro (CSV sintético ou origem anonimizada)
+Prescription/record (synthetic CSV or anonymized source)
         │  scripts/etl_pipeline.py
         ▼
-PostgreSQL normalizado (patients, medications, prescriptions, comorbidities)
-        │  PatientRepository + BeersCriteriaRepository  (infra → domínio)
+Normalized PostgreSQL (patients, medications, prescriptions, comorbidities)
+        │  PatientRepository + BeersCriteriaRepository  (infra → domain)
         ▼
 RiskScoringService.assess(patient)
-   ├─ BeersRulesEngine        → alertas de PIM
-   ├─ InteractionRulesEngine  → interações + ajuste renal
-   ├─ PolypharmacyRulesEngine → poli/hiperpolifarmácia
-   └─ (opcional) modelo de ML → probabilidade de RAM (sinal complementar)
+   ├─ BeersRulesEngine        → PIM alerts
+   ├─ InteractionRulesEngine  → interactions + renal adjustment
+   ├─ PolypharmacyRulesEngine → poly/hyperpolypharmacy
+   └─ (optional) ML model     → ADR probability (complementary signal)
         ▼
-RiskAssessmentDTO  (nível de risco + lista de alertas explicáveis)
-        ├─→ API FastAPI  (GET /patients/{id}/risk-assessment)
-        ├─→ Dashboard Streamlit (visualização por paciente)
-        └─→ Relatório R/Quarto (epidemiologia agregada da coorte)
+RiskAssessmentDTO  (risk level + list of explainable alerts)
+        ├─→ FastAPI API  (GET /patients/{id}/risk-assessment)
+        ├─→ Streamlit dashboard (per-patient visualization)
+        └─→ R/Quarto report (aggregated cohort epidemiology)
 ```
 
-O `RiskScoringService` converte a lista de alertas em um nível
-(`BAIXO/MODERADO/ALTO/CRÍTICO`) por uma heurística transparente: qualquer alerta
-**crítico** eleva a crítico; dois ou mais **altos** elevam a alto; e assim por
-diante. É deliberadamente simples e auditável — a sofisticação fica na base de
-critérios, não numa fórmula opaca.
+`RiskScoringService` converts the list of alerts into a level
+(`BAIXO/MODERADO/ALTO/CRÍTICO` — low/moderate/high/critical) via a transparent
+heuristic: any **critical** alert raises the level to critical; two or more
+**high** alerts raise it to high; and so on. It is deliberately simple and
+auditable — the sophistication lives in the criteria base, not in an opaque
+formula.
 
 ---
 
-## 5. A camada de dados
+## 5. The data layer
 
-Modelei sete tabelas em PostgreSQL (`sql/schema.sql`). Escolhas que fiz de
-propósito:
+I modeled seven tables in PostgreSQL (`sql/schema.sql`). Deliberate choices:
 
-- **Sem PII.** `patients` guarda apenas ano de nascimento, sexo, dados
-  antropométricos e um **pseudônimo não reversível** — nunca nome, CPF ou
-  endereço. Idade é derivada, não armazenada.
-- **UUID como chave** (extensão `uuid-ossp`), evitando o vazamento de volume que
-  IDs sequenciais expõem.
-- **Codificação padronizada**: medicamentos por **ATC** (OMS), comorbidades por
-  **ICD-10** — o que torna o casamento de regras robusto e internacionalizável.
-- **`beers_pim_criteria` como tabela dirigida por dados**: adicionar um critério
-  clínico novo é inserir uma linha com sua fonte, não alterar código.
-- **`JSONB`** em `risk_scores.explanation` para guardar explicabilidade
-  semiestruturada sem uma tabela extra.
+- **No PII.** `patients` stores only birth year, sex, anthropometric data, and a
+  **non-reversible pseudonym** — never a name, national ID, or address. Age is
+  derived, not stored.
+- **UUID primary keys** (`uuid-ossp` extension), avoiding the volume leakage that
+  sequential IDs expose.
+- **Standardized coding**: medications by **ATC** (WHO), comorbidities by
+  **ICD-10** — which makes rule matching robust and internationalizable.
+- **`beers_pim_criteria` as a data-driven table**: adding a new clinical criterion
+  means inserting a row with its source, not changing code.
+- **`JSONB`** in `risk_scores.explanation` to store semi-structured explainability
+  without an extra table.
 
-Um aprendizado real veio daqui. Eu havia modelado `prescriptions.is_active` como
-**coluna gerada** (`GENERATED ALWAYS AS (end_date IS NULL OR end_date >=
-CURRENT_DATE)`). Isso passou nos testes com SQLite, mas o PostgreSQL **rejeitou**
-na subida real: expressões de coluna gerada precisam ser **imutáveis**, e
-`CURRENT_DATE` não é. Corrigi movendo o cálculo de "ativa" para a view
-`v_active_prescriptions` (avaliada em tempo de consulta) e para a propriedade de
-domínio `Prescription.is_active`. Foi um lembrete de que só validação contra a
-tecnologia-alvo real pega esse tipo de incompatibilidade.
-
----
-
-## 6. O componente de Machine Learning (e sua honestidade)
-
-Adicionei um `RandomForestClassifier` que estima a probabilidade de evento
-adverso, com engenharia de features derivada apenas de dados de domínio (idade,
-contagens de PIM/interações/comorbidades, eGFR — nada de PII). Escolhi Random
-Forest **de propósito**: `feature_importances_` dá explicabilidade suficiente
-para o contexto, e prefiro isso à performance marginal de um modelo opaco em
-cenário clínico. O treino registra parâmetros, ROC-AUC e o artefato no **MLflow**.
-
-O ponto mais importante — e que faço questão de deixar explícito — é que o
-**rótulo de treino é uma proxy sintética**, não um desfecho clínico observado.
-Ele existe para demonstrar o *pipeline* de MLOps de ponta a ponta, não para
-afirmar capacidade preditiva real. Em `docs/clinical_validation.md` descrevo o que
-seria necessário para validar com dados reais (rótulo como reinternação por RAM em
-30 dias, métricas AUPRC/calibração/fairness, validação externa). O modelo é sempre
-**complementar** às regras determinísticas, nunca substituto.
+A real lesson came from here. I had modeled `prescriptions.is_active` as a
+**generated column** (`GENERATED ALWAYS AS (end_date IS NULL OR end_date >=
+CURRENT_DATE)`). This passed the tests with SQLite, but PostgreSQL **rejected** it
+on the real deployment: generated-column expressions must be **immutable**, and
+`CURRENT_DATE` is not. I fixed it by moving the "active" computation to the
+`v_active_prescriptions` view (evaluated at query time) and to the domain property
+`Prescription.is_active`. It was a reminder that only validation against the real
+target technology catches this kind of incompatibility.
 
 ---
 
-## 7. Segurança — o que fortifiquei
+## 6. The Machine Learning component (and its honesty)
 
-Tratei segurança como requisito, não como enfeite:
+I added a `RandomForestClassifier` that estimates the probability of an adverse
+event, with feature engineering derived only from domain data (age; counts of
+PIM/interactions/comorbidities; eGFR — no PII). I chose Random Forest **on
+purpose**: `feature_importances_` provides enough explainability for the context,
+and I prefer that to the marginal performance of an opaque model in a clinical
+setting. Training logs parameters, ROC-AUC, and the artifact to **MLflow**.
 
-- **Autenticação de API** com comparação de key em **tempo constante**
-  (`hmac.compare_digest`, contra timing attacks) e **fail-closed em produção**:
-  com `SENIORRX_ENV=production`, a ausência de key retorna 503 em vez de abrir a
-  API silenciosamente.
-- **Cabeçalhos de segurança** em toda resposta (CSP, HSTS em produção, `nosniff`,
+The most important point — and one I make a point of stating explicitly — is that
+the **training label is a synthetic proxy**, not an observed clinical outcome. It
+exists to demonstrate the end-to-end MLOps *pipeline*, not to claim real
+predictive power. In `docs/clinical_validation.md` I describe what would be needed
+to validate with real data (a label such as ADR-related readmission within 30
+days; AUPRC/calibration/fairness metrics; external validation). The model is
+always **complementary** to the deterministic rules, never a substitute.
+
+---
+
+## 7. Security — what I hardened
+
+I treated security as a requirement, not decoration:
+
+- **API authentication** with **constant-time** key comparison
+  (`hmac.compare_digest`, against timing attacks) and **fail-closed in
+  production**: with `SENIORRX_ENV=production`, a missing key returns 503 instead
+  of silently opening the API.
+- **Security headers** on every response (CSP, HSTS in production, `nosniff`,
   `X-Frame-Options: DENY`, `Referrer-Policy`, `Cache-Control: no-store`).
-- **Rate limiting** por IP (`slowapi`), mitigando força-bruta contra a key.
-- **`.dockerignore`** impedindo que `.env`, `.git` e dados entrem nas imagens;
-  containers rodam como **usuário não-root**.
-- **Varredura automatizada no CI**: `bandit` (SAST), `pip-audit` (CVEs) e
-  `gitleaks` (segredos vazados).
-- **Sem segredos no código**: tudo por variável de ambiente; `.env` nunca é
-  commitado (só `.env.example`).
+- **Rate limiting** per IP (`slowapi`), mitigating brute force against the key.
+- **`.dockerignore`** preventing `.env`, `.git`, and data from entering the
+  images; containers run as a **non-root user**.
+- **Automated scanning in CI**: `bandit` (SAST), `pip-audit` (CVEs), and
+  `gitleaks` (leaked secrets).
+- **No secrets in code**: everything via environment variables; `.env` is never
+  committed (only `.env.example`).
 
-Deixei fora de escopo (e documentei) o que pertence à infraestrutura de deploy:
-terminação TLS em proxy reverso, criptografia em repouso e WAF.
-
----
-
-## 8. Privacidade e compliance
-
-O sistema foi desenhado para **LGPD/GDPR** desde a modelagem: nenhum dado real de
-paciente é usado; o schema não tem campos de PII; pacientes são referenciados por
-UUID e pseudônimo. Documentei em `data/README.md` e `SECURITY.md` o que mudaria
-numa adaptação para dados reais (anonimização prévia, RBAC, versionamento de dados
-via DVC em storage criptografado, board de ética).
+I left out of scope (and documented) what belongs to the deployment
+infrastructure: TLS termination at a reverse proxy, encryption at rest, and a WAF.
 
 ---
 
-## 9. Qualidade: testes, tipagem e CI
+## 8. Privacy and compliance
 
-- **Testes** (`pytest`): unitários cobrem cada motor de regra e o serviço de risco
-  sem tocar banco; integração exercita a API contra PostgreSQL e é pulada
-  automaticamente quando o banco não está disponível — o que mantém o loop de
-  desenvolvimento rápido e offline.
-- **Tipagem**: `mypy --strict` em todo o `src/`.
-- **Lint/format**: `ruff` com um conjunto de regras deliberado.
-- **CI** (GitHub Actions): lint, type-check, `security-scan`, testes com serviço
-  Postgres e build das imagens Docker — mais um job agendado de *drift* com
+The system was designed for **LGPD/GDPR** from the modeling stage: no real patient
+data is used; the schema has no PII fields; patients are referenced by UUID and
+pseudonym. In `data/README.md` and `SECURITY.md` I documented what would change in
+an adaptation to real data (prior anonymization, RBAC, data versioning via DVC on
+encrypted storage, an ethics board).
+
+---
+
+## 9. Quality: tests, typing, and CI
+
+- **Tests** (`pytest`): unit tests cover each rule engine and the risk service
+  without touching a database; integration exercises the API against PostgreSQL and
+  is skipped automatically when the database is unavailable — which keeps the
+  development loop fast and offline.
+- **Typing**: `mypy --strict` across all of `src/`.
+- **Lint/format**: `ruff` with a deliberate rule set.
+- **CI** (GitHub Actions): lint, type-check, `security-scan`, tests with a Postgres
+  service, and Docker image builds — plus a scheduled *drift* job with
   Evidently AI.
-- Cobertura mínima configurada em **80%** (`--cov-fail-under=80`).
+- Minimum coverage set to **80%** (`--cov-fail-under=80`).
 
 ---
 
-## 10. Como validei que funciona de verdade
+## 10. How I validated that it really works
 
-Não me contentei com "compila". A validação foi empírica e em camadas:
+I did not settle for "it compiles". Validation was empirical and layered:
 
-1. **Lógica clínica**: 16 testes unitários verdes, cobrindo casos conhecidos da
-   literatura (glibenclamida sempre PIM; benzodiazepínico + histórico de queda;
-   varfarina + AINE; ajuste renal por eGFR).
-2. **Integração API↔banco**: exercitei a API contra um banco SQL real, confirmando
-   que ORM → repositórios → serviço de risco → rotas funcionam juntos.
-3. **Stack completa com Docker**: subi `docker compose up --build` e validei a
-   orquestração de ponta a ponta — Postgres saudável, serviço `init` aplicando
-   schema + os critérios Beers, API respondendo e o dashboard servindo. Foi nessa
-   etapa que descobri e corrigi o bug da coluna gerada não-imutável.
-4. **Endpoints reais**: com 50 pacientes sintéticos carregados via ETL, a API
-   classificou corretamente um paciente como risco **ALTO** — 3 PIM (AINEs, IBP),
-   2 interações "triple whammy" e polifarmácia — e retornou **401** sem API key.
-
----
-
-## 11. Limitações que reconheço
-
-- A base de critérios é um **subconjunto ilustrativo** dos Beers 2023, não a
-  tabela oficial completa (que é propriedade da AGS). Adicionar critérios é
-  trivial e documentado.
-- O modelo de ML usa **rótulo sintético**; não há, ainda, validação clínica
-  prospectiva.
-- A análise epidemiológica do relatório R/Quarto é **descritiva**, não causal.
-- A autenticação por API Key é adequada para o escopo atual; produção real pediria
-  OAuth2/OIDC.
-
-Tudo isso está mapeado no `docs/roadmap.md` (v0.1 → v1.0).
+1. **Clinical logic**: 16 green unit tests, covering cases known from the
+   literature (glibenclamide always a PIM; benzodiazepine + fall history;
+   warfarin + NSAID; renal adjustment by eGFR).
+2. **API↔database integration**: I exercised the API against a real SQL database,
+   confirming that ORM → repositories → risk service → routes work together.
+3. **Full stack with Docker**: I ran `docker compose up --build` and validated the
+   end-to-end orchestration — healthy Postgres, an `init` service applying the
+   schema + the Beers criteria, the API responding, and the dashboard serving. It
+   was at this stage that I found and fixed the non-immutable generated-column bug.
+4. **Real endpoints**: with 50 synthetic patients loaded via ETL, the API
+   correctly classified a patient as **high** risk — 3 PIM (NSAIDs, PPI), 2 "triple
+   whammy" interactions, and polypharmacy — and returned **401** without an API key.
 
 ---
 
-## 12. Se eu tivesse mais tempo
+## 11. Limitations I acknowledge
 
-Priorizaria, nesta ordem: (1) um *golden dataset* revisado por farmacêutico
-clínico para medir concordância das regras; (2) integração **HL7 FHIR** para
-ingerir prontuários reais anonimizados; (3) rótulo clínico real para o modelo de
-ML; (4) explicabilidade por instância (SHAP) e OAuth2/OIDC. O sistema já foi
-construído para receber essas evoluções sem reescrita do núcleo.
+- The criteria base is an **illustrative subset** of Beers 2023, not the full
+  official table (which is AGS property). Adding criteria is trivial and
+  documented.
+- The ML model uses a **synthetic label**; there is, as yet, no prospective
+  clinical validation.
+- The R/Quarto report's epidemiological analysis is **descriptive**, not causal.
+- API Key authentication is adequate for the current scope; real production would
+  call for OAuth2/OIDC.
+
+All of this is mapped in `docs/roadmap.md` (v0.1 → v1.0).
+
+---
+
+## 12. If I had more time
+
+I would prioritize, in this order: (1) a *golden dataset* reviewed by a clinical
+pharmacist to measure rule agreement; (2) **HL7 FHIR** integration to ingest real
+anonymized records; (3) a real clinical label for the ML model; (4) per-instance
+explainability (SHAP) and OAuth2/OIDC. The system was already built to accommodate
+these evolutions without rewriting the core.

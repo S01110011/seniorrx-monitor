@@ -158,7 +158,7 @@ A descrição completa de cada módulo está em [`docs/architecture.md`](docs/ar
 | Documento | Conteúdo |
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | Arquitetura em camadas, fluxo de dados, decisões técnicas |
-| [`docs/DEEP_DIVE.md`](docs/DEEP_DIVE.md) | Análise técnica aprofundada de todo o sistema |
+| [`docs/DEEP_DIVE.pt-BR.md`](docs/DEEP_DIVE.pt-BR.md) | Análise técnica aprofundada de todo o sistema |
 | [`docs/database_schema.md`](docs/database_schema.md) | Modelo relacional detalhado |
 | [`docs/beers_criteria.md`](docs/beers_criteria.md) | Conceitos clínicos e aviso sobre o subconjunto implementado |
 | [`docs/clinical_validation.md`](docs/clinical_validation.md) | Estratégia de validação científica (regras e ML) |
