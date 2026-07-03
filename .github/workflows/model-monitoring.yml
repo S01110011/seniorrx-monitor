@@ -32,7 +32,7 @@ jobs:
           report.run(reference_data=reference, current_data=current)
           report.save_html('reports/drift_report.html')
           "
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: drift-report
           path: reports/drift_report.html
